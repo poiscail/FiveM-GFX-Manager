@@ -3,6 +3,9 @@
 Ce fichier résume tout ce qui a été fait sur ce projet (conversation avec Claude, 28/10/2026),
 pour pouvoir continuer le travail en local. Langue du projet et de l'utilisateur : **français**.
 
+**Consigne :** après chaque modification demandée et terminée, commiter et pousser sur GitHub
+(`poiscail/FiveM-GFX-Manager`, branche `main`). Demander avant de créer une nouvelle release.
+
 ## Demande de départ
 
 Créer un logiciel Windows pour FiveM qui :
@@ -34,7 +37,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/` | Programme de test en .NET 8 qui compile `../Core.cs` (18 vérifications) |
+| `tests/` | Programme de test en .NET 8 qui compile `../Core.cs` (34 vérifications) |
 
 ### Fonctionnement
 
@@ -51,9 +54,22 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   dossier le moins profond qui contient `citizen`, `mods` ou `plugins`. Copie dans FiveM.app : un
   fichier qui existe déjà est d'abord sauvegardé puis remplacé. Le manifeste liste les fichiers
   ajoutés, les fichiers remplacés et les dossiers créés. En cas d'erreur, tout est annulé.
-  Un seul pack à la fois : l'interface propose de retirer l'ancien avant d'installer le nouveau.
+  **Plusieurs packs peuvent être installés en même temps** (`Config.PacksInstalles`). Un pack qui
+  touche un fichier déjà modifié par un autre pack est refusé (le message nomme l'autre pack).
+  L'interface propose de remplacer un pack « Graphique » déjà installé.
+- **Bibliothèque** (`bibliotheque\<id>\pack.json` + `contenu\`) : les packs importés (archive,
+  dossier, `.rpf` seul, glisser-déposer) y sont stockés déjà normalisés en arborescence
+  citizen/mods/plugins. Chaque pack a un type (`Graphique`, `Son`, `Armes`) et une liste de mods
+  ajoutés. `NormalizePack` accepte : une racine citizen/mods/plugins ; un format GTA
+  (`x64/...` ou `update/...` avec des `.rpf`, typique des packs son) → copié dans `mods\` ;
+  des `.rpf` seuls (packs d'armes) → `mods\<nom>.rpf`. Les fichiers bruts (`.ytd`, `.ydr`, `.awc`…)
+  sont refusés avec un message qui conseille OpenIV.
+- **Ajouter des mods à un pack** : fusionne dans `contenu\` (refusé si le pack est installé ;
+  l'interface propose retrait → ajout → réinstallation).
+- Ancienne config (`PackInstalle`, un seul pack) convertie automatiquement au chargement.
 - **Retirer un pack** : supprime les fichiers ajoutés, remet les fichiers remplacés, supprime les
-  dossiers créés s'ils sont vides.
+  dossiers créés s'ils sont vides. Un dossier créé encore utilisé par un autre pack installé est
+  transféré dans le manifeste de cet autre pack (pour être supprimé plus tard).
 - **Restaurer d'origine** : supprime citizen/mods/plugins et recopie la sauvegarde. Remet aussi à
   zéro l'état du pack et de ReShade.
 - **ReShade** : lit reshade.me et cherche `/downloads/ReShade_Setup_X.Y.Z.exe` (version normale,
@@ -83,7 +99,9 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 - `tests/` : zip, 7z et RAR5 ; remplacement puis retrait ; dossiers créés supprimés ; installation
   depuis un dossier ; restauration d'origine ; vrai téléchargement de ReShade 6.8.0 (dll de 5,2 Mo) ;
   shaders (archive locale simulée) ; désinstallation de ReShade qui remet le dll du pack ; cache ;
-  refus d'installer un deuxième pack sans retirer le premier. **Tout passe.**
+  refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, packs d'armes en
+  `.rpf`, refus des `.ytd` bruts, 3 packs installés ensemble, ajout de mods, changement de type,
+  suppression, retrait complet propre) ; conversion de l'ancienne config. **Tout passe.**
 - Interface testée sous Mono : installation et retrait d'un pack 7z, les 3 onglets, installation de
   ReShade.
 - **Testé sur Windows 11 (28/10/2026)** : compilation avec le SDK .NET 8, tous les tests passent
@@ -114,5 +132,6 @@ pack décompressé avec `citizen/common/data/timecycle.xml`, `mods/vfx.rpf`, `pl
 - Si on installe ReShade puis qu'on retire le pack, le `dxgi.dll` de ReShade peut être supprimé
   (il faut alors réinstaller ReShade).
 - Le `.exe` n'est pas signé : Windows SmartScreen affiche un avertissement au premier lancement.
-- Idées : glisser-déposer d'une archive, plusieurs packs en mémoire, mise à jour de ReShade,
-  sélecteur de dossier plus moderne, vrai test sur Windows.
+- Les packs son/armes ne marchent que s'ils sont livrés en `.rpf` ou au format `x64/...` :
+  remplacer directement des fichiers bruts dans les `.rpf` de GTA (OpenIV) n'est pas géré.
+- Idées : mise à jour de ReShade, sélecteur de dossier plus moderne, ordre de priorité entre packs.

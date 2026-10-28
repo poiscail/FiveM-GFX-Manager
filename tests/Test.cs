@@ -27,7 +27,7 @@ class T {
     Core.InstallPack(S+"/MonPack.zip",app,log,pr);
     Core.InstallReshade(app,null,true,null,log,pr);   // vrai telechargement
     var dll=new FileInfo(app+"/plugins/dxgi.dll"); Check(dll.Length>1000000, "ReShade dxgi.dll ("+dll.Length+" o)");
-    Check(Directory.EnumerateFiles(app+"/plugins/reshade-shaders/Shaders","*.fx",SearchOption.AllDirectories).Count()>5, "shaders installes");
+    Check(Directory.EnumerateFiles(app+"/plugins/reshade-shaders/Shaders","*.fx",SearchOption.AllDirectories).Count()>=5 && File.Exists(app+"/plugins/reshade-shaders/Shaders/ReShade.fxh"), "shaders installes"); // la branche slim n'a que 5 .fx
     Console.WriteLine(File.ReadAllText(app+"/plugins/ReShade.ini"));
     Core.UninstallReshade(app,log,pr);
     Check(R(app+"/plugins/dxgi.dll")=="DLL" && !File.Exists(app+"/plugins/ReShade.ini") && !Directory.Exists(app+"/plugins/reshade-shaders"), "desinstallation ReShade remet le dll du pack");

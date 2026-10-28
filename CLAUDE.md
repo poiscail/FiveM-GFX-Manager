@@ -86,8 +86,14 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   refus d'installer un deuxième pack sans retirer le premier. **Tout passe.**
 - Interface testée sous Mono : installation et retrait d'un pack 7z, les 3 onglets, installation de
   ReShade.
-- **Pas encore testé sur un vrai Windows.** Pas testé non plus : le vrai téléchargement des shaders
-  depuis GitHub (bloqué dans l'environnement de test).
+- **Testé sur Windows 11 (28/10/2026)** : compilation avec le SDK .NET 8, tous les tests passent
+  (y compris le vrai téléchargement des shaders depuis GitHub), logique du `.exe` net48 vérifiée
+  (zip/7z/RAR5, installation + retrait), interface affichée correctement à 125 % (3 onglets).
+  Le test des shaders exigeait plus de 5 `.fx`, mais la branche `slim` n'en a que 5 : test corrigé.
+- Pas testé : avec un vrai FiveM installé et en jeu.
+- Compilation : si le chemin du projet est trop long (> ~150 caractères), Costura échoue
+  (« Path length is too large ») → compiler depuis un chemin court (ou `subst`), mais pas
+  depuis la racine d'un lecteur (`W:\`), sinon MSBuild ne trouve plus les `.cs`.
 
 ## Compiler et tester
 

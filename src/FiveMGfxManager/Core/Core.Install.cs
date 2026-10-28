@@ -24,11 +24,25 @@ namespace FiveMGfxManager
 
         public static List<PackInfo> InstalledPacks() => LoadConfig().PacksInstalles;
 
-        public static Manifest InstallLibraryPack(string id, string fivemApp, Action<string> log, Action<double> progress)
+        // moveAside : sons d'armes trouvés par FindWeaponSounds à mettre de côté (remis au retrait du pack)
+        public static Manifest InstallLibraryPack(string id, string fivemApp, Action<string> log, Action<double> progress,
+                                                  List<SoundHit> moveAside = null)
         {
             var pack = GetLibraryPack(id);
             if (IsInstalled(id)) throw new GfxException($"Le pack « {pack.Nom} » est déjà installé.");
-            return InstallContent(LibraryContent(id), pack.Nom, pack.Type, id, pack.Source, fivemApp, log, progress);
+            var m = InstallContent(LibraryContent(id), pack.Nom, pack.Type, id, pack.Source, fivemApp, log, progress);
+            var moved = (moveAside ?? new List<SoundHit>()).Where(h => h.Deplacable && File.Exists(h.Chemin))
+                                                            .Select(h => h.Rel).Distinct(StringComparer.OrdinalIgnoreCase);
+            foreach (var rel in moved)
+            {
+                string b = P(Path.Combine(InstallsDir(), m.Id, "sons_deplaces"), rel);
+                CopyFile(P(fivemApp, rel), b);
+                RemoveFile(P(fivemApp, rel));
+                m.Deplaces.Add(rel);
+                log("Son d'arme mis de côté : " + rel.Replace('/', '\\'));
+            }
+            if (m.Deplaces.Count > 0) WriteJson(ManifestPath(m.Id), m);
+            return m;
         }
 
         // Packs installés qui modifient déjà des fichiers de ce pack de la bibliothèque
@@ -179,6 +193,13 @@ namespace FiveMGfxManager
             string backupDir = Path.Combine(packDir, "fichiers_remplaces");
             HandOverToReshade(manifest, cfg, backupDir, log);
             Revert(manifest, fivemApp, backupDir, log);
+            foreach (var rel in manifest.Deplaces ?? new List<string>())
+            {
+                string b = P(Path.Combine(packDir, "sons_deplaces"), rel);
+                if (!File.Exists(b)) log("  ! son mis de côté introuvable : " + rel);
+                else if (File.Exists(P(fivemApp, rel))) log("  ! " + rel + " existe déjà : son mis de côté pas remis");
+                else { CopyFile(b, P(fivemApp, rel)); log("Son d'arme remis : " + rel.Replace('/', '\\')); }
+            }
             progress(1);
             RemoveTree(packDir);
             cfg.PacksInstalles.RemoveAll(p => p.Id == packId);

@@ -21,6 +21,9 @@ UTILISATION CONSEILLEE
    clic droit sur un pack ou touche Suppr pour aller plus vite.
    En installant un nouveau pack son (ou autre) qui remplace les memes fichiers,
    le logiciel propose de retirer l'ancien automatiquement.
+   Avant de coller un pack son, il cherche aussi dans tous les dossiers et
+   sous-dossiers de FiveM.app (et dans GTA V\mods) les sons d'armes deja
+   presents et propose de les mettre de cote (ils reviennent au retrait du pack).
 4. Onglet "ReShade" -> "Installer ReShade" (telechargement automatique).
    En jeu, le menu ReShade s'ouvre avec la touche Debut (Home).
    Un pack peut etre installe par-dessus ReShade, inutile de le desinstaller avant :

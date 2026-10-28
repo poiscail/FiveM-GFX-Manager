@@ -82,6 +82,29 @@ class T {
     foreach (var p in Core.InstalledPacks().ToList()) Core.UninstallPack(p.Id,app,log,pr);
     Check(R(app+"/citizen/common/data/timecycle.xml")=="ORIG" && !Directory.Exists(app+"/mods"), "tout retire : FiveM propre");
     Core.DeleteFromLibrary(arm.Id,log); Check(Core.ListLibrary().Count==2, "suppression de la bibliotheque");
+    // sons d'armes deja presents ailleurs avant d'installer un pack son
+    W(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf","VIEUX");
+    W(app+"/mods/casse.rpf","pas un rpf");
+    W(S+"/gta/mods/x64/audio/sfx/RESIDENT.rpf","OPENIV");
+    using (var bw=new BinaryWriter(File.Create(app+"/mods/addon.rpf"))) { // RPF7 non chiffre : content/x64/audio/sfx/WEAPONS_PLAYER.rpf
+      var nm=new[]{"","content","x64","audio","sfx","WEAPONS_PLAYER.rpf"}; var off=new int[nm.Length]; var tbl=new System.Collections.Generic.List<byte>();
+      for(int i=0;i<nm.Length;i++){ off[i]=tbl.Count; tbl.AddRange(System.Text.Encoding.ASCII.GetBytes(nm[i])); tbl.Add(0); }
+      while(tbl.Count%16!=0) tbl.Add(0);
+      bw.Write(0x52504637u); bw.Write(nm.Length); bw.Write(tbl.Count); bw.Write(0x4E45504Fu);
+      for(int i=0;i<5;i++){ bw.Write((uint)off[i]); bw.Write(0x7FFFFF00u); bw.Write(i+1); bw.Write(1); }
+      bw.Write((ulong)off[5] | (5UL<<16) | (1UL<<40)); bw.Write(0UL);
+      bw.Write(tbl.ToArray()); while(bw.BaseStream.Length<1024) bw.Write((byte)0);
+    }
+    Check(Core.FindWeaponSounds(g.Id,app).Count==0, "pas de recherche de sons pour un pack graphique");
+    var hits=Core.FindWeaponSounds(son.Id,app); foreach(var h in hits) log("  trouve : "+h);
+    Check(hits.Count(h=>h.Deplacable)==1 && hits.Single(h=>h.Deplacable).Rel=="mods/autre/x64/audio/sfx/RESIDENT.rpf", "son d'arme seul dans un sous-dossier de mods trouve");
+    Check(hits.Any(h=>h.Rel=="mods/addon.rpf" && h.Dedans=="content/x64/audio/sfx/WEAPONS_PLAYER.rpf"), "son d'arme trouve dans un .rpf de mods");
+    Check(hits.Any(h=>h.Rel==null && h.Chemin.Replace('\\','/').EndsWith("gta/mods/x64/audio/sfx/RESIDENT.rpf")), "son d'arme trouve dans GTA V/mods");
+    Core.InstallLibraryPack(son.Id,app,log,pr,hits);
+    Check(!File.Exists(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf") && R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON" && File.Exists(app+"/mods/addon.rpf"), "son d'arme mis de cote a l'installation (pas les autres mods)");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Check(R(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf")=="VIEUX" && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf"), "son mis de cote remis au retrait du pack");
+    Directory.Delete(app+"/mods",true); File.Delete(S+"/gta/mods/x64/audio/sfx/RESIDENT.rpf");
     // installation directe de .rpf seuls sans bibliotheque
     Core.InstallPack(S+"/explosions.rpf",app,log,pr,"Armes"); Check(R(app+"/mods/x64/audio/sfx/explosions.rpf")=="BOUM", "install directe d'un .rpf de sons");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);

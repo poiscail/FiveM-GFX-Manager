@@ -1061,19 +1061,53 @@ namespace FiveMGfxManager
             var conflicts = Core.ConflictingPacks(r.Lib.Id);
             var old = conflicts.Concat(Core.InstalledPacks().Where(i => i.Type == "Graphique" && r.Lib.Type == "Graphique"))
                                .GroupBy(i => i.Id).Select(g => g.First()).ToList();
+            var removed = new HashSet<string>();
             if (old.Count > 0)
             {
                 string list = string.Join("\n", old.Select(i => $"  • {i.Nom} ({i.Type})"));
                 if (Ask("Remplacer l'ancien pack",
                         $"Déjà installé{(old.Count > 1 ? "s" : "")} :\n{list}\n\n" +
                         $"Le{(old.Count > 1 ? "s" : "")} retirer de FiveM et installer « {r.Nom} » à la place ?"))
-                    foreach (var s in old) steps.Add((log, p) => Core.UninstallPack(s.Id, fivem, log, p));
+                    foreach (var s in old)
+                    {
+                        removed.Add(s.Nom);
+                        steps.Add((log, p) => Core.UninstallPack(s.Id, fivem, log, p));
+                    }
                 else if (conflicts.Count > 0)
                     return; // impossible d'installer par-dessus : les deux packs modifient les mêmes fichiers
             }
 
+            // avant de coller un pack son : sons d'armes déjà présents ailleurs (autres mods, autres dossiers)
+            var sounds = Core.FindWeaponSounds(r.Lib.Id, fivem).Where(h => h.Pack == null || !removed.Contains(h.Pack)).ToList();
+            var moveAside = new List<SoundHit>();
+            if (sounds.Count > 0)
+            {
+                Log($"Sons d'armes déjà présents ({sounds.Count}) :");
+                foreach (var h in sounds) Log("  " + h);
+                var movable = sounds.Where(h => h.Deplacable).ToList();
+                var others = sounds.Where(h => !h.Deplacable).ToList();
+                string Lines(List<SoundHit> l) =>
+                    string.Join("\n", l.Take(8).Select(h => "  • " + h)) + (l.Count > 8 ? $"\n  … (+{l.Count - 8}, voir le journal)" : "");
+                string note = others.Count == 0 ? "" :
+                    $"\n\nAutres sons d'armes trouvés (dans d'autres mods ou hors de FiveM), laissés en place :\n{Lines(others)}";
+                if (movable.Count > 0)
+                {
+                    var res = MessageBox.Show(this,
+                        $"Des sons d'armes sont déjà dans FiveM et pourraient passer devant ceux de « {r.Nom} » :\n" +
+                        $"{Lines(movable)}{note}\n\nLes mettre de côté ? (ils reviennent si tu retires le pack)\n\n" +
+                        "Oui : les mettre de côté et installer\nNon : installer sans y toucher\nAnnuler : ne rien faire",
+                        "Sons d'armes trouvés", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                    if (res == DialogResult.Cancel) return;
+                    if (res == DialogResult.Yes) moveAside = movable;
+                }
+                else if (!Ask("Sons d'armes trouvés",
+                              $"Des sons d'armes sont déjà présents :\n{Lines(others)}\n\n" +
+                              "Ils peuvent changer ou couvrir ceux du pack. Installer quand même ?"))
+                    return;
+            }
+
             string id = r.Lib.Id;
-            steps.Add((log, p) => Core.InstallLibraryPack(id, fivem, log, p));
+            steps.Add((log, p) => Core.InstallLibraryPack(id, fivem, log, p, moveAside));
             RunTask((log, p) => { foreach (var s in steps) s(log, p); });
         }
 

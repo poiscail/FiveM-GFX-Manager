@@ -88,6 +88,8 @@ namespace FiveMGfxManager
         [DataMember] public List<string> DossiersCrees = new List<string>();
         // fichiers de ReShade remplacés par le pack (leur version ReShade est dans fichiers_remplaces)
         [DataMember] public List<string> SurReshade = new List<string>();
+        // sons d'armes de FiveM.app\mods mis de côté avant l'installation (remis au retrait du pack)
+        [DataMember] public List<string> Deplaces = new List<string>();
     }
 
     [DataContract]

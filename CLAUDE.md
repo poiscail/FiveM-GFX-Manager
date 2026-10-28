@@ -37,6 +37,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Core/Core.Archives.cs` | Décompression (SharpCompress), `NormalizePack`, chemin GTA des `.rpf` seuls (`GtaRpfIndex`, `LooseRpfPath`) |
 | `Core/Core.Install.cs` | Installer / retirer un pack, conflits, `HandOverToReshade`, cache |
 | `Core/Core.Library.cs` | Bibliothèque de packs (import, mods ajoutés, type, suppression) |
+| `Core/Core.Scan.cs` | Recherche des sons d'armes déjà présents avant un pack son (`FindWeaponSounds`, lecteur RPF7 non chiffré `RpfEntries`) |
 | `Core/Core.Backup.cs` | Sauvegarde et restauration d'origine |
 | `Core/Core.Reshade.cs` | Téléchargement / installation / désinstallation de ReShade |
 | `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Sauvegarde / ReShade, liste de packs + détails, journal). Les opérations tournent en arrière-plan (`Task.Run`) |
@@ -44,7 +45,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (53 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (59 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement
@@ -128,7 +129,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, `.rpf` seuls rangés à
   leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.ytd` bruts, 3 packs
   installés ensemble, ajout de mods sans doublon, changement de type, suppression, retrait complet
-  propre) ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres, et ReShade désinstallé
+  propre) ; sons d'armes trouvés avant install (sous-dossier de mods, dans un .rpf, GTA V\mods), mis de côté puis remis ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres, et ReShade désinstallé
   pendant qu'un pack est installé par-dessus) ; `.rpf` seuls rangés grâce à un faux dossier GTA V
   (`POLICE_SCANNER.rpf`, `mpheist\dlc.rpf`, `dlc.rpf` ambigu refusé) ; conversion de l'ancienne
   config. **Tout passe (50).**

@@ -6,7 +6,8 @@
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../Core.cs" />
+    <!-- la logique du logiciel est testée sans l'interface -->
+    <Compile Include="../../src/FiveMGfxManager/Core/*.cs" />
     <PackageReference Include="SharpCompress" Version="0.50.7" />
   </ItemGroup>
 </Project>

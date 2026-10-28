@@ -1,0 +1,33 @@
+FiveM GFX Manager
+=================
+
+AUCUNE INSTALLATION NECESSAIRE : double-clique sur FiveM-GFX-Manager.exe.
+(Fonctionne sur Windows 10 et 11, qui ont deja tout ce qu'il faut.)
+Garde le fichier .exe.config a cote du .exe.
+
+Si Windows affiche "Windows a protege votre ordinateur" :
+  clique sur "Informations complementaires" puis "Executer quand meme".
+  (normal pour un logiciel sans signature payante)
+
+UTILISATION CONSEILLEE
+1. FiveM ferme et SANS mods -> onglet "Sauvegarde d'origine" -> "Creer la sauvegarde".
+2. Onglet "Packs" -> choisis le type (Graphique, Son, Armes) -> "Ajouter des archives..."
+   (ou glisse tes .zip / .7z / .rar / .rpf dans la liste). Les packs sont stockes dans la
+   bibliotheque. Selectionne un pack -> "Installer". Plusieurs packs peuvent etre installes
+   en meme temps (ex. un graphique + un son + des armes).
+   "Ajouter des mods au pack..." ajoute d'autres fichiers a un pack de la bibliotheque.
+3. Pour revenir en arriere : "Retirer", ou "Restaurer FiveM d'origine".
+4. Onglet "ReShade" -> "Installer ReShade" (telechargement automatique).
+   En jeu, le menu ReShade s'ouvre avec la touche Debut (Home).
+
+Les sauvegardes sont dans %APPDATA%\FiveMGfxManager
+
+REMARQUES
+- Seuls les dossiers citizen, mods et plugins de FiveM.app sont geres.
+  Packs son / armes : ils doivent etre fournis au format x64\... / update\... (ranges dans mods),
+  ou en .rpf seul connu (RESIDENT.rpf, WEAPONS_PLAYER.rpf, EXPLOSIONS.rpf, update.rpf, x64?.rpf).
+  FiveM ne charge un .rpf que s'il est au meme chemin que dans GTA V.
+  Les fichiers bruts a remplacer avec OpenIV (.ytd, .ydr, .awc...) ne sont pas pris en charge.
+- Les archives protegees par mot de passe ne sont pas prises en charge :
+  decompresse-les toi-meme puis choisis "Dossier...".
+- Certains serveurs interdisent ReShade ou les packs graphiques : verifie leurs regles.

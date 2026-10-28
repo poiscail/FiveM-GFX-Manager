@@ -6,8 +6,8 @@
     <AssemblyName>FiveM-GFX-Manager</AssemblyName>
     <RootNamespace>FiveMGfxManager</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
-    <Version>1.1.1</Version>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <Version>1.2.0</Version>
     <Product>FiveM GFX Manager</Product>
     <DebugType>none</DebugType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -15,9 +15,6 @@
   <ItemGroup>
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Runtime.Serialization" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="tests/**" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Costura.Fody" Version="6.2.0">

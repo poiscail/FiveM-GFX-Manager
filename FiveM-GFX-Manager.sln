@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{213EBD1E-D949-4612-AC0D-A59D421A9754}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiveMGfxManager", "src\FiveMGfxManager\FiveMGfxManager.csproj", "{7C098818-A489-4AE0-836B-89D34282DBD9}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{2AAC338C-9524-4039-9FAB-D16D36FD3D35}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FiveMGfxManager.Tests", "tests\FiveMGfxManager.Tests\FiveMGfxManager.Tests.csproj", "{AB995268-5980-47B5-A361-97ABFCF6F7ED}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7C098818-A489-4AE0-836B-89D34282DBD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7C098818-A489-4AE0-836B-89D34282DBD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7C098818-A489-4AE0-836B-89D34282DBD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7C098818-A489-4AE0-836B-89D34282DBD9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB995268-5980-47B5-A361-97ABFCF6F7ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB995268-5980-47B5-A361-97ABFCF6F7ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB995268-5980-47B5-A361-97ABFCF6F7ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB995268-5980-47B5-A361-97ABFCF6F7ED}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{7C098818-A489-4AE0-836B-89D34282DBD9} = {213EBD1E-D949-4612-AC0D-A59D421A9754}
+		{AB995268-5980-47B5-A361-97ABFCF6F7ED} = {2AAC338C-9524-4039-9FAB-D16D36FD3D35}
+	EndGlobalSection
+EndGlobal

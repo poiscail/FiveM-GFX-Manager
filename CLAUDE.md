@@ -4,7 +4,8 @@ Ce fichier résume tout ce qui a été fait sur ce projet (conversation avec Cla
 pour pouvoir continuer le travail en local. Langue du projet et de l'utilisateur : **français**.
 
 **Consigne :** après chaque modification demandée et terminée, commiter et pousser sur GitHub
-(`poiscail/FiveM-GFX-Manager`, branche `main`). Demander avant de créer une nouvelle release.
+(`poiscail/FiveM-GFX-Manager`, branche `main`), et publier une nouvelle release si l'appli a changé.
+Ne pas demander de confirmation : faire, puis dire ce qui a été fait.
 
 ## Demande de départ
 

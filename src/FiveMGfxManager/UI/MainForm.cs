@@ -359,7 +359,7 @@ namespace FiveMGfxManager
             packList.Dock = DockStyle.Fill;
             packList.View = View.Details;
             packList.FullRowSelect = true;
-            packList.MultiSelect = false;
+            packList.MultiSelect = true;
             packList.HideSelection = false;
             packList.BackColor = Theme.Card;
             packList.ForeColor = Theme.Fg;
@@ -391,6 +391,14 @@ namespace FiveMGfxManager
             packList.Resize += (s, e) => FitColumns();
             packList.SelectedIndexChanged += (s, e) => ShowDetails();
             packList.DoubleClick += (s, e) => { if (!busy) InstallSelected(); };
+            // Suppr : retire de FiveM les packs sélectionnés (ou les supprime de la bibliothèque s'ils ne sont pas installés)
+            packList.KeyDown += (s, e) =>
+            {
+                if (busy || e.KeyCode != Keys.Delete) return;
+                if (SelectedRows().Any(r => r.Inst != null)) UninstallSelected();
+                else DeleteSelected();
+            };
+            packList.ContextMenuStrip = BuildPackMenu();
 
 
             // message quand la bibliothèque est vide
@@ -413,6 +421,34 @@ namespace FiveMGfxManager
             page.Controls.Add(listCard, 0, 1);
             page.Controls.Add(BuildDetails(), 1, 1);
             return page;
+        }
+
+        ContextMenuStrip BuildPackMenu()
+        {
+            var menu = new ContextMenuStrip { Renderer = new DarkMenuRenderer(), Font = Theme.Ui(9.5F), ShowImageMargin = false };
+            var install = new ToolStripMenuItem("Installer dans FiveM", null, (s, e) => InstallSelected());
+            var remove = new ToolStripMenuItem("Retirer de FiveM", null, (s, e) => UninstallSelected()) { Tag = "danger" };
+            var mods = new ToolStripMenuItem("Ajouter des mods au pack…", null, (s, e) => AddMods());
+            var type = new ToolStripMenuItem("Changer le type…", null, (s, e) => ChangeType());
+            var delete = new ToolStripMenuItem("Supprimer de la bibliothèque", null, (s, e) => DeleteSelected()) { Tag = "danger" };
+            menu.Items.AddRange(new ToolStripItem[] { install, remove, new ToolStripSeparator(), mods, type, new ToolStripSeparator(), delete });
+            foreach (ToolStripItem i in menu.Items) { i.ForeColor = Theme.Fg; i.Padding = new Padding(4, 3, 4, 3); }
+            menu.Opening += (s, e) =>
+            {
+                var rows = SelectedRows();
+                if (busy || rows.Count == 0) { e.Cancel = true; return; }
+                int inst = rows.Count(r => r.Inst != null), del = rows.Count(r => r.Lib != null && r.Inst == null);
+                bool one = rows.Count == 1;
+                install.Visible = one && rows[0].Inst == null;
+                remove.Visible = inst > 0;
+                remove.Text = inst > 1 ? $"Retirer les {inst} packs de FiveM" : "Retirer de FiveM";
+                mods.Visible = type.Visible = one && rows[0].Lib != null;
+                delete.Visible = del > 0;
+                delete.Text = del > 1 ? $"Supprimer les {del} packs de la bibliothèque" : "Supprimer de la bibliothèque";
+                menu.Items[2].Visible = (install.Visible || remove.Visible) && (mods.Visible || delete.Visible);
+                menu.Items[5].Visible = mods.Visible && delete.Visible;
+            };
+            return menu;
         }
 
         void DrawPackCell(DrawListViewSubItemEventArgs e, Font nameFont, Font smallFont)
@@ -537,10 +573,18 @@ namespace FiveMGfxManager
 
         void ShowDetails()
         {
-            var r = SelectedRow();
+            var rows = SelectedRows();
+            var r = rows.FirstOrDefault();
             detailEmpty.Visible = r == null;
             detailBody.Visible = r != null;
             if (r == null) return;
+            if (rows.Count > 1)
+            {
+                ShowMultiDetails(rows);
+                return;
+            }
+            removeBtn.Text = "Retirer de FiveM";
+            deleteBtn.Text = "Supprimer de la bibliothèque";
 
             detailName.Text = r.Nom;
             tips.SetToolTip(detailName, r.Nom);
@@ -561,6 +605,27 @@ namespace FiveMGfxManager
             deleteBtn.Visible = r.Lib != null && r.Inst == null;
         }
 
+        void ShowMultiDetails(List<PackRow> rows)
+        {
+            int inst = rows.Count(x => x.Inst != null), del = rows.Count(x => x.Lib != null && x.Inst == null);
+            string names = string.Join(", ", rows.Select(x => x.Nom));
+            detailName.Text = $"{rows.Count} packs sélectionnés";
+            tips.SetToolTip(detailName, string.Join("\n", rows.Select(x => x.Nom)));
+            var types = rows.Select(x => x.Type).Distinct().ToList();
+            detailType.Set(types.Count == 1 ? types[0] : "Plusieurs types", types.Count == 1 ? Theme.TypeColor(types[0]) : Theme.Muted);
+            detailState.Set(inst == 0 ? "Aucun installé" : $"{inst} installé{(inst > 1 ? "s" : "")}", inst == 0 ? Theme.Muted : Theme.Ok);
+            detailSize.Text = Core.HumanSize(rows.Where(x => x.Lib != null).Sum(x => x.Lib.Taille));
+            detailAdded.Text = detailInstalled.Text = detailMods.Text = "—";
+            detailSource.Text = names;
+            tips.SetToolTip(detailSource, string.Join("\n", rows.Select(x => x.Nom)));
+
+            installBtn.Visible = addModsBtn.Visible = typeBtn.Visible = false;
+            removeBtn.Visible = inst > 0;
+            removeBtn.Text = inst > 1 ? $"Retirer les {inst} packs de FiveM" : "Retirer de FiveM";
+            deleteBtn.Visible = del > 0;
+            deleteBtn.Text = del > 1 ? $"Supprimer les {del} packs de la bibliothèque" : "Supprimer de la bibliothèque";
+        }
+
         void FitColumns()
         {
             int other = packList.Columns.Cast<ColumnHeader>().Skip(1).Sum(c => c.Width);
@@ -569,7 +634,7 @@ namespace FiveMGfxManager
 
         void RefreshPackList()
         {
-            string selected = SelectedRow()?.Key;
+            var selected = new HashSet<string>(SelectedRows().Select(x => x.Key));
             var installed = Core.InstalledPacks();
             var rows = Core.ListLibrary().Select(l => new PackRow { Lib = l, Inst = installed.FirstOrDefault(i => i.LibId == l.Id) })
                            .ToList();
@@ -593,7 +658,7 @@ namespace FiveMGfxManager
                 if (r.Lib?.Mods != null && r.Lib.Mods.Count > 0)
                     item.ToolTipText = "Mods ajoutés : " + string.Join(", ", r.Lib.Mods);
                 packList.Items.Add(item);
-                if (r.Key == selected) item.Selected = true;
+                if (selected.Contains(r.Key)) item.Selected = true;
             }
             packList.EndUpdate();
             FitColumns();
@@ -609,6 +674,8 @@ namespace FiveMGfxManager
         }
 
         PackRow SelectedRow() => packList.SelectedItems.Count > 0 ? (PackRow)packList.SelectedItems[0].Tag : null;
+
+        List<PackRow> SelectedRows() => packList.SelectedItems.Cast<ListViewItem>().Select(i => (PackRow)i.Tag).ToList();
 
         PackRow RequireSelection()
         {
@@ -989,12 +1056,21 @@ namespace FiveMGfxManager
                     "⚠ FiveM doit être actuellement SANS mods."))
                 steps.Add((log, p) => Core.CreateOriginalBackup(fivem, log, p));
 
-            // un seul pack graphique à la fois : on propose de remplacer l'ancien
-            var same = Core.InstalledPacks().Where(i => i.Type == r.Lib.Type && r.Lib.Type == "Graphique").ToList();
-            if (same.Count > 0 &&
-                Ask("Remplacer le pack", $"Le pack graphique « {same[0].Nom} » est déjà installé.\n" +
-                    "Le retirer avant d'installer le nouveau ? (conseillé)"))
-                foreach (var s in same) steps.Add((log, p) => Core.UninstallPack(s.Id, fivem, log, p));
+            // packs déjà installés qui touchent les mêmes fichiers (ex. un autre pack son) : ils doivent être retirés,
+            // et un seul pack graphique à la fois
+            var conflicts = Core.ConflictingPacks(r.Lib.Id);
+            var old = conflicts.Concat(Core.InstalledPacks().Where(i => i.Type == "Graphique" && r.Lib.Type == "Graphique"))
+                               .GroupBy(i => i.Id).Select(g => g.First()).ToList();
+            if (old.Count > 0)
+            {
+                string list = string.Join("\n", old.Select(i => $"  • {i.Nom} ({i.Type})"));
+                if (Ask("Remplacer l'ancien pack",
+                        $"Déjà installé{(old.Count > 1 ? "s" : "")} :\n{list}\n\n" +
+                        $"Le{(old.Count > 1 ? "s" : "")} retirer de FiveM et installer « {r.Nom} » à la place ?"))
+                    foreach (var s in old) steps.Add((log, p) => Core.UninstallPack(s.Id, fivem, log, p));
+                else if (conflicts.Count > 0)
+                    return; // impossible d'installer par-dessus : les deux packs modifient les mêmes fichiers
+            }
 
             string id = r.Lib.Id;
             steps.Add((log, p) => Core.InstallLibraryPack(id, fivem, log, p));
@@ -1003,20 +1079,22 @@ namespace FiveMGfxManager
 
         void UninstallSelected()
         {
-            var r = RequireSelection();
-            if (r == null) return;
-            if (r.Inst == null)
+            if (RequireSelection() == null) return;
+            var inst = SelectedRows().Where(x => x.Inst != null).ToList();
+            if (inst.Count == 0)
             {
-                Info("Packs", $"Le pack « {r.Nom} » n'est pas installé.\n" +
+                Info("Packs", "Aucun pack sélectionné n'est installé.\n" +
                               "Pour l'enlever de la liste, utilise « Supprimer de la bibliothèque ».");
                 return;
             }
             string fivem = FivemPath();
             if (fivem == null || !FivemClosed()) return;
-            string id = r.Inst.Id;
-            if (Ask("Retirer le pack", $"Retirer « {r.Nom} » de FiveM et remettre les fichiers d'origine ?\n" +
-                                       "(il reste dans la bibliothèque)"))
-                RunTask((log, p) => Core.UninstallPack(id, fivem, log, p));
+            string what = inst.Count == 1 ? $"« {inst[0].Nom} »"
+                        : $"ces {inst.Count} packs :\n" + string.Join("\n", inst.Select(x => "  • " + x.Nom)) + "\n\n";
+            var ids = inst.Select(x => x.Inst.Id).ToList();
+            if (Ask("Retirer de FiveM", $"Retirer {what} de FiveM et remettre les fichiers d'origine ?\n" +
+                                        "(ils restent dans la bibliothèque)"))
+                RunTask((log, p) => { foreach (var id in ids) Core.UninstallPack(id, fivem, log, p); });
         }
 
         void AddMods()
@@ -1072,21 +1150,22 @@ namespace FiveMGfxManager
 
         void DeleteSelected()
         {
-            var r = RequireSelection();
-            if (r == null) return;
-            if (r.Lib == null)
+            if (RequireSelection() == null) return;
+            var rows = SelectedRows();
+            var del = rows.Where(x => x.Lib != null && x.Inst == null).ToList();
+            if (del.Count == 0)
             {
-                Info("Packs", "Ce pack n'est pas dans la bibliothèque. Utilise « Retirer » pour l'enlever de FiveM.");
+                Info("Packs", rows.Any(x => x.Lib == null)
+                    ? "Ce pack n'est pas dans la bibliothèque. Utilise « Retirer » pour l'enlever de FiveM."
+                    : "Ces packs sont installés. Retire-les d'abord de FiveM.");
                 return;
             }
-            if (r.Inst != null)
-            {
-                Info("Packs", $"« {r.Nom} » est installé. Retire-le d'abord.");
-                return;
-            }
-            string id = r.Lib.Id;
-            if (Ask("Supprimer", $"Supprimer « {r.Nom} » de la bibliothèque ?\n(il faudra l'importer à nouveau pour le réutiliser)"))
-                RunTask((log, p) => Core.DeleteFromLibrary(id, log));
+            string what = del.Count == 1 ? $"« {del[0].Nom} »"
+                        : $"ces {del.Count} packs :\n" + string.Join("\n", del.Select(x => "  • " + x.Nom)) + "\n\n";
+            string skipped = rows.Count > del.Count ? "\n(les packs installés sont gardés)" : "";
+            var ids = del.Select(x => x.Lib.Id).ToList();
+            if (Ask("Supprimer", $"Supprimer {what} de la bibliothèque ?\n(il faudra les importer à nouveau pour les réutiliser){skipped}"))
+                RunTask((log, p) => { foreach (var id in ids) Core.DeleteFromLibrary(id, log); });
         }
 
         void ChooseReshade()

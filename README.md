@@ -7,7 +7,8 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - choisir quel pack **installer** dans `FiveM.app` : packs **graphiques**, packs **son**
   et **remplacements d'armes** (plusieurs packs à la fois, conflits détectés) ;
 - **ajouter des mods** à un pack existant, changer son type, le supprimer ;
-- retirer un pack et remettre les fichiers d'origine ;
+- retirer un ou plusieurs packs (clic droit, touche Suppr) et remettre les fichiers d'origine ;
+- installer un nouveau pack son ou d'armes : l'ancien qui touche les mêmes fichiers est retiré ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
 - vider le cache FiveM.

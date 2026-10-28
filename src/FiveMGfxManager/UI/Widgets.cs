@@ -489,4 +489,30 @@ namespace FiveMGfxManager
 
         struct RECT { public int Left, Top, Right, Bottom; }
     }
+
+    // Menu clic droit au thème sombre
+    class DarkMenuRenderer : ToolStripProfessionalRenderer
+    {
+        public DarkMenuRenderer() : base(new DarkColors()) { RoundedEdges = false; }
+
+        protected override void OnRenderItemText(ToolStripItemTextRenderEventArgs e)
+        {
+            e.TextColor = !e.Item.Enabled ? Theme.Muted
+                        : e.Item.Tag as string == "danger" ? Theme.Danger : Theme.Fg;
+            base.OnRenderItemText(e);
+        }
+
+        class DarkColors : ProfessionalColorTable
+        {
+            public override Color ToolStripDropDownBackground => Theme.Card;
+            public override Color ImageMarginGradientBegin => Theme.Card;
+            public override Color ImageMarginGradientMiddle => Theme.Card;
+            public override Color ImageMarginGradientEnd => Theme.Card;
+            public override Color MenuBorder => Theme.Border;
+            public override Color MenuItemBorder => Theme.Hover;
+            public override Color MenuItemSelected => Theme.Hover;
+            public override Color SeparatorDark => Theme.Border;
+            public override Color SeparatorLight => Theme.Card;
+        }
+    }
 }

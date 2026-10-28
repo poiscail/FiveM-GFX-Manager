@@ -16,7 +16,11 @@ UTILISATION CONSEILLEE
    bibliotheque. Selectionne un pack -> "Installer". Plusieurs packs peuvent etre installes
    en meme temps (ex. un graphique + un son + des armes).
    "Ajouter des mods au pack..." ajoute d'autres fichiers a un pack de la bibliotheque.
-3. Pour revenir en arriere : "Retirer", ou "Restaurer FiveM d'origine".
+3. Pour revenir en arriere : "Retirer de FiveM", ou "Restaurer FiveM d'origine".
+   On peut selectionner plusieurs packs (Ctrl + clic) puis les retirer d'un coup ;
+   clic droit sur un pack ou touche Suppr pour aller plus vite.
+   En installant un nouveau pack son (ou autre) qui remplace les memes fichiers,
+   le logiciel propose de retirer l'ancien automatiquement.
 4. Onglet "ReShade" -> "Installer ReShade" (telechargement automatique).
    En jeu, le menu ReShade s'ouvre avec la touche Debut (Home).
    Un pack peut etre installe par-dessus ReShade, inutile de le desinstaller avant :

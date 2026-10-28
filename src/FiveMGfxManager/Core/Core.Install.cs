@@ -31,6 +31,18 @@ namespace FiveMGfxManager
             return InstallContent(LibraryContent(id), pack.Nom, pack.Type, id, pack.Source, fivemApp, log, progress);
         }
 
+        // Packs installés qui modifient déjà des fichiers de ce pack de la bibliothèque
+        // (ex. un autre pack son) : il faut les retirer avant de l'installer.
+        public static List<PackInfo> ConflictingPacks(string libId)
+        {
+            var mine = new HashSet<string>(ListFiles(LibraryContent(libId)), StringComparer.OrdinalIgnoreCase);
+            return InstalledPacks().Where(i => i.LibId != libId).Where(i =>
+            {
+                var m = ReadJson<Manifest>(ManifestPath(i.Id));
+                return m != null && Touched(m).Any(mine.Contains);
+            }).ToList();
+        }
+
         // Installe directement une archive, un dossier ou un .rpf (sans passer par la bibliothèque).
         public static Manifest InstallPack(string source, string fivemApp, Action<string> log, Action<double> progress,
                                            string type = "Graphique")

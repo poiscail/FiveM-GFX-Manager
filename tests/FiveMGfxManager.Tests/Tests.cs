@@ -62,6 +62,13 @@ class T {
     Check(Core.InstalledPacks().Count==3 && R(app+"/citizen/common/data/timecycle.xml")=="MOD", "3 packs installes ensemble");
     Check(R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON", "pack son range dans mods/x64");
     Check(R(app+"/mods/x64/audio/sfx/weapons_player.rpf")=="ARME" && !File.Exists(app+"/mods/lisezmoi.txt"), "pack armes : .rpf seul range a son chemin GTA");
+    W(S+"/son2/RESIDENT.rpf","SON2");
+    var son2=Core.ImportPack(S+"/son2","Son",log,pr);
+    var cf=Core.ConflictingPacks(son2.Id);
+    Check(cf.Count==1 && cf[0].LibId==son.Id, "nouveau pack son : l'ancien pack son est detecte (a retirer)");
+    try { Core.InstallLibraryPack(son2.Id,app,log,pr); Check(false,"son2"); } catch(GfxException e){ Check(e.Message.Contains("Retire d'abord") && R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON", "2e pack son refuse tant que l'ancien est installe"); }
+    Core.DeleteFromLibrary(son2.Id,log);
+    Check(Core.ConflictingPacks(arm.Id).Count==0, "pas de conflit entre pack son et pack armes");
     try { Core.InstallLibraryPack(g.Id,app,log,pr); Check(false,"2x"); } catch(GfxException){ Check(true,"meme pack pas installe 2 fois"); }
     try { Core.AddModsToPack(arm.Id,S+"/couteau",log,pr); Check(false,"mods"); } catch(GfxException){ Check(true,"ajout de mods refuse si pack installe"); }
     try { Core.DeleteFromLibrary(arm.Id,log); Check(false,"del"); } catch(GfxException){ Check(true,"suppression refusee si pack installe"); }

@@ -110,6 +110,9 @@ namespace FiveMGfxManager
         static readonly string[] RawGameExts =
             { ".ytd", ".ydr", ".yft", ".ydd", ".ytyp", ".ymap", ".ybn", ".awc", ".oac", ".rel", ".meta", ".gxt2" };
 
+        // .rpf de sons souvent remplacés (packs de sons d'armes), rangés dans x64\audio\sfx de GTA V
+        static readonly string[] SfxRpfs = { "resident.rpf", "weapons_player.rpf", "explosions.rpf" };
+
         const string ReshadeSite = "https://reshade.me";
         static readonly string ReshadeShadersZip = Environment.GetEnvironmentVariable("FIVEM_GFX_SHADERS_URL")
             ?? "https://github.com/crosire/reshade-shaders/archive/refs/heads/slim.zip";
@@ -482,6 +485,22 @@ namespace FiveMGfxManager
         //  Préparation d'un pack (graphique, son, armes)
         // ------------------------------------------------------------------ //
 
+        // Crée un dossier temporaire pour f et le supprime ensuite.
+        static T WithTempDir<T>(Func<string, T> f)
+        {
+            string work = NewTempDir("fivem_gfx_");
+            try { return f(work); }
+            finally { try { RemoveTree(work); } catch { } }
+        }
+
+        // Décompresse et range source dans work\range, puis renvoie ce dossier.
+        static string StageSource(string source, string work, Action<string> log, Action<double> progress)
+        {
+            string staged = Path.Combine(work, "range");
+            NormalizePack(OpenSource(source, work, log, progress), staged, log);
+            return staged;
+        }
+
         // Décompresse source si besoin et renvoie le dossier à analyser (work est supprimé par l'appelant).
         static string OpenSource(string source, string work, Action<string> log, Action<double> progress)
         {
@@ -532,15 +551,28 @@ namespace FiveMGfxManager
                         files.AddRange(ListFiles(sub).Where(r => r.EndsWith(".rpf", StringComparison.OrdinalIgnoreCase))
                                                      .Select(rel => ("mods/" + name + "/" + rel, P(sub, rel))));
                     }
+                    // .rpf de la racine du jeu (x64e.rpf…) livrés à côté de x64\ / update\
+                    foreach (var f in Directory.GetFiles(gameRoot, "*.rpf").Where(f => IsTopLevelRpf(Path.GetFileName(f))))
+                        files.Add(("mods/" + Path.GetFileName(f), f));
                 }
                 else
                 {
                     var rpfs = Directory.EnumerateFiles(folder, "*.rpf", SearchOption.AllDirectories).ToList();
                     if (rpfs.Count > 0)
                     {
-                        log($"{rpfs.Count} fichier(s) .rpf trouvé(s) : placés dans mods\\.");
+                        // FiveM ne charge un .rpf de mods\ que s'il a le même chemin que dans GTA V
+                        var unknown = rpfs.Select(Path.GetFileName).Where(n => LooseRpfPath(n) == null).Distinct().ToList();
+                        if (unknown.Count > 0)
+                            throw new GfxException("Impossible de savoir où vont ces .rpf dans GTA V : " + string.Join(", ", unknown) +
+                                                   "\nFiveM ne les charge que s'ils sont au même chemin que dans le jeu " +
+                                                   "(ex : mods\\x64\\audio\\sfx\\RESIDENT.rpf).\n\n" +
+                                                   "Prends la version du mod qui contient les dossiers (x64\\…, update\\…), " +
+                                                   "ou range-les toi-même dans un dossier « mods » avec le bon chemin, " +
+                                                   "puis utilise « Ajouter un dossier… ».");
                         foreach (var f in rpfs)
-                            files.Add(("mods/" + Path.GetFileName(f), f));
+                            files.Add((LooseRpfPath(Path.GetFileName(f)), f));
+                        log($"{rpfs.Count} fichier(s) .rpf placé(s) à leur chemin GTA V dans mods\\ : " +
+                            string.Join(", ", files.Select(x => x.rel)));
                         var dup = files.GroupBy(f => f.rel.ToLowerInvariant()).FirstOrDefault(g => g.Count() > 1);
                         if (dup != null)
                             throw new GfxException($"Deux fichiers s'appellent « {Path.GetFileName(dup.Key)} » dans le pack.\n" +
@@ -565,6 +597,18 @@ namespace FiveMGfxManager
             foreach (var (rel, src) in files)
                 CopyFile(src, P(dest, rel));
             return files.Select(f => f.rel).ToList();
+        }
+
+        // .rpf de la racine de GTA V (common.rpf, x64a.rpf … x64w.rpf)
+        static bool IsTopLevelRpf(string name) => Regex.IsMatch(name, @"^(common|x64[a-w])\.rpf$", RegexOptions.IgnoreCase);
+
+        // Chemin dans FiveM.app d'un .rpf livré seul (null : on ne sait pas où il va)
+        static string LooseRpfPath(string name)
+        {
+            if (IsTopLevelRpf(name)) return "mods/" + name;
+            if (name.Equals("update.rpf", StringComparison.OrdinalIgnoreCase)) return "mods/update/" + name;
+            if (SfxRpfs.Contains(name.ToLowerInvariant())) return "mods/x64/audio/sfx/" + name;
+            return null;
         }
 
         // Dossier le moins profond qui contient x64\ ou update\ avec des .rpf dedans
@@ -603,8 +647,13 @@ namespace FiveMGfxManager
             return Directory.GetDirectories(LibraryDir())
                             .Select(d => ReadJson<LibraryPack>(Path.Combine(d, "pack.json")))
                             .Where(p => p != null)
-                            .OrderBy(p => p.Date).ToList();
+                            .OrderBy(p => p.Id, StringComparer.Ordinal).ToList(); // l'id commence par yyyyMMdd_HHmmss
         }
+
+        // Empreinte du contenu d'un pack (chemins + tailles), pour repérer les doublons
+        static string ContentSignature(string content) => string.Join("\n",
+            ListFiles(content).Select(r => r.ToLowerInvariant() + "|" + new FileInfo(P(content, r)).Length)
+                              .OrderBy(x => x, StringComparer.Ordinal));
 
         public static LibraryPack GetLibraryPack(string id) =>
             ReadJson<LibraryPack>(Path.Combine(LibraryDir(), id, "pack.json"))
@@ -624,6 +673,10 @@ namespace FiveMGfxManager
             {
                 string folder = OpenSource(source, work, log, p => progress(p * 0.7));
                 var files = NormalizePack(folder, Path.Combine(dir, "contenu"), log);
+                string sig = ContentSignature(Path.Combine(dir, "contenu"));
+                var same = ListLibrary().FirstOrDefault(o => o.Id != id && ContentSignature(LibraryContent(o.Id)) == sig);
+                if (same != null)
+                    throw new GfxException($"Ce pack est déjà dans la bibliothèque : « {same.Nom} » (même contenu).");
                 var pack = new LibraryPack
                 {
                     Id = id, Nom = SourceName(source), Type = type ?? "Graphique", Source = source, Date = Now(),
@@ -651,28 +704,24 @@ namespace FiveMGfxManager
             var pack = GetLibraryPack(id);
             if (IsInstalled(id))
                 throw new GfxException($"Le pack « {pack.Nom} » est installé. Retire-le avant de lui ajouter des mods.");
-            string work = NewTempDir("fivem_gfx_");
-            try
+            WithTempDir(work =>
             {
-                string folder = OpenSource(source, work, log, p => progress(p * 0.6));
-                string staged = Path.Combine(work, "range");
-                var files = NormalizePack(folder, staged, log);
+                string staged = StageSource(source, work, log, p => progress(p * 0.6));
+                var files = ListFiles(staged);
                 string content = LibraryContent(id);
                 int replaced = files.Count(rel => File.Exists(P(content, rel)));
                 foreach (var rel in files)
                     CopyFile(P(staged, rel), P(content, rel));
+                string name = SourceName(source);
                 pack.Mods = pack.Mods ?? new List<string>();
-                pack.Mods.Add(SourceName(source));
+                if (!pack.Mods.Contains(name, StringComparer.OrdinalIgnoreCase)) pack.Mods.Add(name);
                 pack.Taille = FolderSize(content);
                 SaveLibraryPack(pack);
                 progress(1);
-                log($"Mods « {SourceName(source)} » ajoutés à « {pack.Nom} » : {files.Count} fichiers" +
+                log($"Mods « {name} » ajoutés à « {pack.Nom} » : {files.Count} fichiers" +
                     (replaced > 0 ? $" (dont {replaced} remplacés dans le pack)." : "."));
-            }
-            finally
-            {
-                try { RemoveTree(work); } catch { }
-            }
+                return 0;
+            });
         }
 
         public static void SetPackType(string id, string type)
@@ -713,20 +762,16 @@ namespace FiveMGfxManager
         {
             if (!IsValidFivemApp(fivemApp))
                 throw new GfxException("Le dossier FiveM.app est invalide. Choisis le bon dossier en haut.");
-            string work = NewTempDir("fivem_gfx_");
-            try
-            {
-                string folder = OpenSource(source, work, log, p => progress(p * 0.5));
-                string staged = Path.Combine(work, "range");
-                NormalizePack(folder, staged, log);
-                return InstallContent(staged, SourceName(source), type, null, source, fivemApp, log,
-                                      p => progress(0.5 + p * 0.5));
-            }
-            finally
-            {
-                try { RemoveTree(work); } catch { }
-            }
+            return WithTempDir(work =>
+                InstallContent(StageSource(source, work, log, p => progress(p * 0.5)), SourceName(source), type, null,
+                               source, fivemApp, log, p => progress(0.5 + p * 0.5)));
         }
+
+        static string ManifestPath(string installId) => Path.Combine(InstallsDir(), installId, "manifest.json");
+
+        // Fichiers de FiveM.app écrits par un pack installé
+        static IEnumerable<string> Touched(Manifest m) =>
+            (m.Ajoutes ?? new List<string>()).Concat(m.Remplaces ?? new List<string>());
 
         static Manifest InstallContent(string content, string packName, string type, string libId, string source,
                                        string fivemApp, Action<string> log, Action<double> progress)
@@ -737,14 +782,19 @@ namespace FiveMGfxManager
             var files = ListFiles(content);
             if (files.Count == 0) throw new GfxException("Le pack ne contient aucun fichier.");
 
-            // deux packs installés ne doivent jamais toucher le même fichier (sinon le retrait casserait l'autre)
             var mine = new HashSet<string>(files, StringComparer.OrdinalIgnoreCase);
-            foreach (var other in InstalledPacks())
+            var cfgBefore = LoadConfig();
+            // un fichier de ReShade remplacé par le pack serait perdu au retrait du pack
+            var rsClash = (cfgBefore.Reshade?.Fichiers ?? new List<string>()).Where(mine.Contains).ToList();
+            if (rsClash.Count > 0)
+                throw new GfxException($"Ce pack remplace des fichiers de ReShade : {string.Join(", ", rsClash)}\n\n" +
+                                       "Désinstalle ReShade (onglet ReShade), installe le pack, puis réinstalle ReShade.");
+            // deux packs installés ne doivent jamais toucher le même fichier (sinon le retrait casserait l'autre)
+            foreach (var other in cfgBefore.PacksInstalles)
             {
-                var om = ReadJson<Manifest>(Path.Combine(InstallsDir(), other.Id, "manifest.json"));
+                var om = ReadJson<Manifest>(ManifestPath(other.Id));
                 if (om == null) continue;
-                var clash = (om.Ajoutes ?? new List<string>()).Concat(om.Remplaces ?? new List<string>())
-                                                               .Where(mine.Contains).ToList();
+                var clash = Touched(om).Where(mine.Contains).ToList();
                 if (clash.Count > 0)
                     throw new GfxException($"Ce pack remplace des fichiers déjà modifiés par le pack « {other.Nom} » :\n  " +
                                            string.Join("\n  ", clash.Take(5)) + (clash.Count > 5 ? $"\n  … (+{clash.Count - 5})" : "") +
@@ -799,7 +849,7 @@ namespace FiveMGfxManager
                 throw;
             }
 
-            WriteJson(Path.Combine(packDir, "manifest.json"), manifest);
+            WriteJson(ManifestPath(packId), manifest);
             var cfg = LoadConfig();
             cfg.PacksInstalles.Add(new PackInfo { Nom = packName, Id = packId, Date = manifest.Date, Type = type, LibId = libId });
             SaveConfig(cfg);
@@ -831,27 +881,29 @@ namespace FiveMGfxManager
             var info = InstalledPacks().FirstOrDefault(p => p.Id == packId)
                 ?? throw new GfxException("Ce pack n'est pas installé.");
             string packDir = Path.Combine(InstallsDir(), info.Id);
-            var manifest = ReadJson<Manifest>(Path.Combine(packDir, "manifest.json"))
+            var manifest = ReadJson<Manifest>(ManifestPath(info.Id))
                 ?? throw new GfxException("Le journal d'installation est introuvable.\n" +
                                           "Utilise « Restaurer FiveM d'origine » à la place.");
 
             log($"Retrait du pack « {info.Nom} »…");
             progress(0.3);
-            Revert(manifest, fivemApp, Path.Combine(packDir, "fichiers_remplaces"), log);
+            var cfg = LoadConfig();
+            string backupDir = Path.Combine(packDir, "fichiers_remplaces");
+            HandOverToReshade(manifest, cfg, backupDir, log);
+            Revert(manifest, fivemApp, backupDir, log);
             progress(1);
             RemoveTree(packDir);
-            var cfg = LoadConfig();
             cfg.PacksInstalles.RemoveAll(p => p.Id == packId);
 
             // dossiers créés par ce pack mais encore utilisés par un autre : c'est l'autre pack qui les supprimera
             var kept = (manifest.DossiersCrees ?? new List<string>()).Where(d => Directory.Exists(P(fivemApp, d))).ToList();
             foreach (var other in cfg.PacksInstalles)
             {
-                string path = Path.Combine(InstallsDir(), other.Id, "manifest.json");
+                string path = ManifestPath(other.Id);
                 var om = ReadJson<Manifest>(path);
                 if (om == null || kept.Count == 0) continue;
                 om.DossiersCrees = om.DossiersCrees ?? new List<string>();
-                var mine = (om.Ajoutes ?? new List<string>()).Concat(om.Remplaces ?? new List<string>()).ToList();
+                var mine = Touched(om).ToList();
                 var taken = kept.Where(d => !om.DossiersCrees.Contains(d) &&
                                             mine.Any(f => f.StartsWith(d + "/", StringComparison.OrdinalIgnoreCase))).ToList();
                 if (taken.Count == 0) continue;
@@ -861,6 +913,40 @@ namespace FiveMGfxManager
             }
             SaveConfig(cfg);
             log($"Pack retiré : {manifest.Ajoutes.Count} fichiers supprimés, {manifest.Remplaces.Count} fichiers d'origine remis.");
+        }
+
+        // ReShade installé après le pack a écrasé certains de ses fichiers (ex : plugins\dxgi.dll) :
+        // on les laisse en place et c'est ReShade qui remettra l'original à sa désinstallation.
+        static void HandOverToReshade(Manifest m, Config cfg, string packBackupDir, Action<string> log)
+        {
+            var rs = cfg.Reshade;
+            if (rs == null) return;
+            rs.EnsureInit();
+            var shared = Touched(m).Where(f => rs.Fichiers.Contains(f, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (shared.Count == 0) return;
+            string rsBackupDir = Path.Combine(DataDir(), "reshade_sauvegarde");
+            foreach (var rel in shared)
+            {
+                string key = rs.Sauvegardes.Keys.FirstOrDefault(k => k.Equals(rel, StringComparison.OrdinalIgnoreCase)) ?? rel;
+                string old = P(packBackupDir, rel);
+                if ((m.Remplaces ?? new List<string>()).Contains(rel) && File.Exists(old))
+                {
+                    // l'original d'avant le pack devient la sauvegarde de ReShade
+                    string b = P(rsBackupDir, key);
+                    CopyFile(old, b);
+                    rs.Sauvegardes[key] = b;
+                }
+                else if (rs.Sauvegardes.TryGetValue(key, out var b))
+                {
+                    // le fichier n'existait pas avant le pack : ReShade devra simplement le supprimer
+                    RemoveFile(b);
+                    rs.Sauvegardes.Remove(key);
+                }
+                m.Ajoutes?.Remove(rel);
+                m.Remplaces?.Remove(rel);
+                log($"  {rel} est utilisé par ReShade : laissé en place.");
+            }
+            SaveConfig(cfg);
         }
 
         // Vide le cache FiveM (conseillé après un changement de pack graphique).

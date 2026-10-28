@@ -13,8 +13,10 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - vider le cache FiveM.
 
 Formats de packs acceptés : arborescence `citizen` / `mods` / `plugins`, format GTA `x64/...`
-ou `update/...` (copié dans `mods`, typique des packs son), ou fichiers `.rpf` seuls (packs d'armes,
-copiés dans `mods`).
+ou `update/...` (copié dans `mods`, typique des packs son), ou fichiers `.rpf` seuls dont on connaît
+le chemin dans GTA V (`RESIDENT.rpf`, `WEAPONS_PLAYER.rpf`, `EXPLOSIONS.rpf` → `mods\x64\audio\sfx\`,
+`update.rpf` → `mods\update\`, `x64a…w.rpf` / `common.rpf` → `mods\`). FiveM ne charge un `.rpf` de
+`mods` que s'il a le même chemin que dans le jeu : un `.rpf` seul au nom inconnu est refusé.
 
 ## Compiler
 

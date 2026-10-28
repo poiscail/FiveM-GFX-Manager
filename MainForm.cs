@@ -271,7 +271,7 @@ namespace FiveMGfxManager
             packList.DrawItem += (s, e) => e.DrawDefault = true;
             packList.DrawSubItem += (s, e) => e.DrawDefault = true;
             packList.Resize += (s, e) => FitColumns();
-            packList.DoubleClick += (s, e) => InstallSelected();
+            packList.DoubleClick += (s, e) => { if (!busy) InstallSelected(); };
             // glisser-déposer des archives / dossiers sur la liste
             packList.AllowDrop = true;
             packList.DragEnter += (s, e) =>
@@ -283,7 +283,7 @@ namespace FiveMGfxManager
                 "Ajoute tes packs (.zip, .7z, .rar, .rpf ou dossier ; tu peux aussi les glisser sur la liste) : ils sont\n" +
                 "décompressés et gardés dans la bibliothèque. Choisis ensuite un pack et clique sur « Installer ».\n" +
                 "Plusieurs packs peuvent être installés en même temps (ex : graphique + son + armes), tant qu'ils ne\n" +
-                "remplacent pas les mêmes fichiers. Les fichiers .rpf seuls (sons, armes) vont dans mods\\.", Muted));
+                "remplacent pas les mêmes fichiers. Les .rpf sont rangés dans mods\\ au même chemin que dans GTA V.", Muted));
 
             btns.Controls.Add(AccentBtn("Installer", InstallSelected));
             btns.Controls.Add(DangerBtn("Retirer", UninstallSelected));
@@ -602,11 +602,21 @@ namespace FiveMGfxManager
             string type = (string)typeBox.SelectedItem;
             RunTask((log, p) =>
             {
+                // un fichier refusé n'empêche pas d'importer les suivants
+                var errors = new List<string>();
                 for (int i = 0; i < sources.Length; i++)
                 {
                     int k = i;
-                    Core.ImportPack(sources[i], type, log, x => p((k + x) / sources.Length));
+                    try { Core.ImportPack(sources[i], type, log, x => p((k + x) / sources.Length)); }
+                    catch (Exception ex) when (sources.Length > 1)
+                    {
+                        errors.Add($"{Path.GetFileName(sources[i].TrimEnd('\\', '/'))} : {ex.Message}");
+                        log("  ! " + errors.Last());
+                    }
                 }
+                if (errors.Count > 0)
+                    throw new GfxException($"{errors.Count} pack(s) sur {sources.Length} non importé(s) :\n\n" +
+                                           string.Join("\n\n", errors));
             });
         }
 
@@ -683,8 +693,15 @@ namespace FiveMGfxManager
             RunTask((log, p) =>
             {
                 if (instId != null) Core.UninstallPack(instId, fivem, log, p);
-                foreach (var f in files) Core.AddModsToPack(libId, f, log, p);
-                if (instId != null) Core.InstallLibraryPack(libId, fivem, log, p);
+                try
+                {
+                    foreach (var f in files) Core.AddModsToPack(libId, f, log, p);
+                }
+                finally
+                {
+                    // même si un mod est refusé, le pack est remis comme avant
+                    if (instId != null) Core.InstallLibraryPack(libId, fivem, log, p);
+                }
             });
         }
 

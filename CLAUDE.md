@@ -37,7 +37,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/` | Programme de test en .NET 8 qui compile `../Core.cs` (34 vérifications) |
+| `tests/` | Programme de test en .NET 8 qui compile `../Core.cs` (44 vérifications) |
 
 ### Fonctionnement
 
@@ -62,8 +62,12 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   citizen/mods/plugins. Chaque pack a un type (`Graphique`, `Son`, `Armes`) et une liste de mods
   ajoutés. `NormalizePack` accepte : une racine citizen/mods/plugins ; un format GTA
   (`x64/...` ou `update/...` avec des `.rpf`, typique des packs son) → copié dans `mods\` ;
-  des `.rpf` seuls (packs d'armes) → `mods\<nom>.rpf`. Les fichiers bruts (`.ytd`, `.ydr`, `.awc`…)
-  sont refusés avec un message qui conseille OpenIV.
+  des `.rpf` seuls au nom connu → leur chemin GTA (`LooseRpfPath` : sons → `mods\x64\audio\sfx\`,
+  `update.rpf` → `mods\update\`, `x64?.rpf`/`common.rpf` → `mods\`) ; les autres `.rpf` seuls sont
+  refusés, car FiveM ne charge un `.rpf` de mods que s'il a le même chemin que dans GTA
+  (https://openiv.com/?p=1132). Les fichiers bruts (`.ytd`, `.ydr`, `.awc`…) sont refusés avec un
+  message qui conseille OpenIV. Un pack au contenu identique (chemins + tailles) à un pack déjà dans
+  la bibliothèque est refusé.
 - **Ajouter des mods à un pack** : fusionne dans `contenu\` (refusé si le pack est installé ;
   l'interface propose retrait → ajout → réinstallation).
 - Ancienne config (`PackInstalle`, un seul pack) convertie automatiquement au chargement.
@@ -93,15 +97,22 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   autres, on extrait entrée par entrée.
 - Conflits de versions entre les dépendances System.* sur net48 : versions fixées dans le csproj.
 - Les liens dans le journal s'affichaient en bleu illisible : `DetectUrls = false`.
+- Revue du 28/10/2026 : `.rpf` seuls rangés à plat dans `mods\` (inutiles pour FiveM) → chemin GTA ;
+  doublons dans la bibliothèque et dans la liste des mods ; bibliothèque triée sur la date texte
+  (jj/MM) → tri par id ; retrait d'un pack qui supprimait le `dxgi.dll` de ReShade ; pack laissé
+  désinstallé si l'ajout de mods échouait ; import multiple arrêté au premier fichier refusé ;
+  double-clic pendant une opération ; code dupliqué (`StageSource`, `ManifestPath`, `Touched`).
 
 ## Tests effectués
 
 - `tests/` : zip, 7z et RAR5 ; remplacement puis retrait ; dossiers créés supprimés ; installation
   depuis un dossier ; restauration d'origine ; vrai téléchargement de ReShade 6.8.0 (dll de 5,2 Mo) ;
   shaders (archive locale simulée) ; désinstallation de ReShade qui remet le dll du pack ; cache ;
-  refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, packs d'armes en
-  `.rpf`, refus des `.ytd` bruts, 3 packs installés ensemble, ajout de mods, changement de type,
-  suppression, retrait complet propre) ; conversion de l'ancienne config. **Tout passe.**
+  refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, `.rpf` seuls rangés à
+  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.ytd` bruts, 3 packs
+  installés ensemble, ajout de mods sans doublon, changement de type, suppression, retrait complet
+  propre) ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres) ; conversion de l'ancienne
+  config. **Tout passe (44).**
 - Interface testée sous Mono : installation et retrait d'un pack 7z, les 3 onglets, installation de
   ReShade.
 - **Testé sur Windows 11 (28/10/2026)** : compilation avec le SDK .NET 8, tous les tests passent
@@ -126,12 +137,14 @@ pack décompressé avec `citizen/common/data/timecycle.xml`, `mods/vfx.rpf`, `pl
 
 ## Limites connues / idées pour la suite
 
-- Seuls `citizen`, `mods` et `plugins` de FiveM.app sont gérés. Les packs qui modifient GTA V
-  (OpenIV, `update.rpf`, `x64*.rpf`) ne sont pas pris en charge.
+- Seuls `citizen`, `mods` et `plugins` de FiveM.app sont gérés (les `.rpf` de GTA remplacés passent
+  par `mods\`). Modifier GTA V lui-même (OpenIV) n'est pas pris en charge.
 - Archives protégées par mot de passe non prises en charge (il faut passer par « Dossier… »).
-- Si on installe ReShade puis qu'on retire le pack, le `dxgi.dll` de ReShade peut être supprimé
-  (il faut alors réinstaller ReShade).
+- ReShade installé après un pack qui a le même fichier (`dxgi.dll`) : au retrait du pack, le fichier
+  reste et ReShade reprend la sauvegarde d'origine (`HandOverToReshade`). Un pack qui écraserait un
+  fichier de ReShade est refusé (désinstaller ReShade d'abord).
 - Le `.exe` n'est pas signé : Windows SmartScreen affiche un avertissement au premier lancement.
-- Les packs son/armes ne marchent que s'ils sont livrés en `.rpf` ou au format `x64/...` :
+- Les packs son/armes ne marchent que s'ils sont livrés au format `x64/...` / `update/...` ou en
+  `.rpf` seul au nom connu (liste `SfxRpfs` à compléter au besoin) :
   remplacer directement des fichiers bruts dans les `.rpf` de GTA (OpenIV) n'est pas géré.
 - Idées : mise à jour de ReShade, sélecteur de dossier plus moderne, ordre de priorité entre packs.

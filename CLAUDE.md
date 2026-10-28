@@ -33,12 +33,19 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 
 | Fichier | Rôle |
 |---|---|
-| `Core.cs` | Toute la logique, sans interface. Classe statique `Core` + classes JSON (`Config`, `Manifest`, `PackInfo`, `BackupInfo`, `ReshadeState`) |
-| `MainForm.cs` | Interface WinForms en thème sombre : 3 onglets faits avec des boutons, journal, barre de progression. Les opérations tournent en arrière-plan (`Task.Run`) |
+| `src/FiveMGfxManager/Core/Core.cs` | Classe statique `Core` (partielle) : config, chemins FiveM.app / GTA V (`GtaPath`), utilitaires + classes JSON (`Config`, `Manifest`, `PackInfo`, `BackupInfo`, `ReshadeState`) |
+| `Core/Core.Archives.cs` | Décompression (SharpCompress), `NormalizePack`, chemin GTA des `.rpf` seuls (`GtaRpfIndex`, `LooseRpfPath`) |
+| `Core/Core.Install.cs` | Installer / retirer un pack, conflits, `HandOverToReshade`, cache |
+| `Core/Core.Library.cs` | Bibliothèque de packs (import, mods ajoutés, type, suppression) |
+| `Core/Core.Backup.cs` | Sauvegarde et restauration d'origine |
+| `Core/Core.Reshade.cs` | Téléchargement / installation / désinstallation de ReShade |
+| `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Sauvegarde / ReShade, liste de packs + détails, journal). Les opérations tournent en arrière-plan (`Task.Run`) |
+| `UI/Theme.cs`, `UI/Widgets.cs` | Couleurs du thème sombre, contrôles dessinés à la main (boutons, segments, `DarkListView`…) |
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
-| `app.manifest`, `icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/` | Programme de test en .NET 8 qui compile `../Core.cs` (44 vérifications) |
+| `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (50 vérifications) |
+| `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement
 
@@ -63,8 +70,13 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   citizen/mods/plugins. Chaque pack a un type (`Graphique`, `Son`, `Armes`) et une liste de mods
   ajoutés. `NormalizePack` accepte : une racine citizen/mods/plugins ; un format GTA
   (`x64/...` ou `update/...` avec des `.rpf`, typique des packs son) → copié dans `mods\` ;
-  des `.rpf` seuls au nom connu → leur chemin GTA (`LooseRpfPath` : sons → `mods\x64\audio\sfx\`,
-  `update.rpf` → `mods\update\`, `x64?.rpf`/`common.rpf` → `mods\`) ; les autres `.rpf` seuls sont
+  des `.rpf` seuls → leur chemin GTA. `GtaPath` trouve GTA V (`FIVEM_GFX_GTA` pour les tests, sinon
+  `IVPath` de `FiveM.app\CitizenFX.ini`, sinon registre Rockstar / Steam / Epic ; dossier valide s'il
+  contient `x64a.rpf`) et `GtaRpfIndex` liste ses `.rpf` (sauf `mods\`). `LooseRpfPath` cherche le
+  nom dans cet index ; s'il y est plusieurs fois (`dlc.rpf`), on garde le chemin qui partage le plus
+  de dossiers de fin avec le chemin du fichier dans le pack (`mpheist\dlc.rpf`), sinon refus
+  « existe à plusieurs endroits ». Sans GTA V : règles fixes (sons `SfxRpfs` → `mods\x64\audio\sfx\`,
+  `update.rpf` → `mods\update\`, `x64?.rpf`/`common.rpf` → `mods\`). Les `.rpf` introuvables sont
   refusés, car FiveM ne charge un `.rpf` de mods que s'il a le même chemin que dans GTA
   (https://openiv.com/?p=1132). Les fichiers bruts (`.ytd`, `.ydr`, `.awc`…) sont refusés avec un
   message qui conseille OpenIV. Un pack au contenu identique (chemins + tailles) à un pack déjà dans
@@ -112,8 +124,10 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, `.rpf` seuls rangés à
   leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.ytd` bruts, 3 packs
   installés ensemble, ajout de mods sans doublon, changement de type, suppression, retrait complet
-  propre) ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres) ; conversion de l'ancienne
-  config. **Tout passe (44).**
+  propre) ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres, et ReShade désinstallé
+  pendant qu'un pack est installé par-dessus) ; `.rpf` seuls rangés grâce à un faux dossier GTA V
+  (`POLICE_SCANNER.rpf`, `mpheist\dlc.rpf`, `dlc.rpf` ambigu refusé) ; conversion de l'ancienne
+  config. **Tout passe (50).**
 - Interface testée sous Mono : installation et retrait d'un pack 7z, les 3 onglets, installation de
   ReShade.
 - **Testé sur Windows 11 (28/10/2026)** : compilation avec le SDK .NET 8, tous les tests passent
@@ -128,8 +142,8 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 ## Compiler et tester
 
 ```bash
-dotnet build -c Release          # -> bin/Release/net48/FiveM-GFX-Manager.exe (+ .exe.config)
-cd tests && dotnet run -- <dossier-vide-de-test>
+dotnet build src/FiveMGfxManager -c Release   # -> src/FiveMGfxManager/bin/Release/net48/FiveM-GFX-Manager.exe (+ .exe.config)
+cd tests/FiveMGfxManager.Tests && dotnet run -c Release -- <dossier-vide-de-test>
 ```
 
 Le dossier de test doit contenir `MonPack.zip`, `MonPack.7z` et `Rar5.rar`, ainsi que `src/` (un
@@ -142,10 +156,13 @@ pack décompressé avec `citizen/common/data/timecycle.xml`, `mods/vfx.rpf`, `pl
   par `mods\`). Modifier GTA V lui-même (OpenIV) n'est pas pris en charge.
 - Archives protégées par mot de passe non prises en charge (il faut passer par « Dossier… »).
 - ReShade installé après un pack qui a le même fichier (`dxgi.dll`) : au retrait du pack, le fichier
-  reste et ReShade reprend la sauvegarde d'origine (`HandOverToReshade`). Un pack qui écraserait un
-  fichier de ReShade est refusé (désinstaller ReShade d'abord).
+  reste et ReShade reprend la sauvegarde d'origine (`HandOverToReshade`).
+- Pack installé **par-dessus** ReShade (même fichier) : autorisé. Le fichier de ReShade est
+  sauvegardé comme un fichier remplacé ordinaire et noté dans `Manifest.SurReshade` ; il revient au
+  retrait du pack. Si ReShade est désinstallé avant, le fichier du pack reste en place et la sauvegarde
+  du pack reçoit l'original d'avant ReShade (ou le fichier passe dans `Ajoutes` s'il n'existait pas).
 - Le `.exe` n'est pas signé : Windows SmartScreen affiche un avertissement au premier lancement.
 - Les packs son/armes ne marchent que s'ils sont livrés au format `x64/...` / `update/...` ou en
-  `.rpf` seul au nom connu (liste `SfxRpfs` à compléter au besoin) :
+  `.rpf` seul dont le chemin est trouvé dans GTA V (ou au nom connu, liste `SfxRpfs`, sans GTA V) :
   remplacer directement des fichiers bruts dans les `.rpf` de GTA (OpenIV) n'est pas géré.
 - Idées : mise à jour de ReShade, sélecteur de dossier plus moderne, ordre de priorité entre packs.

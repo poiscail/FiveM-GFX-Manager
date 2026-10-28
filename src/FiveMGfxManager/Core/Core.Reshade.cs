@@ -194,10 +194,33 @@ namespace FiveMGfxManager
         {
             var state = ReshadeStatus() ?? throw new GfxException("ReShade n'a pas été installé par ce logiciel.");
             state.EnsureInit();
+            var packs = LoadConfig().PacksInstalles
+                .Select(p => (path: ManifestPath(p.Id), m: ReadJson<Manifest>(ManifestPath(p.Id)), id: p.Id))
+                .Where(x => x.m != null).ToList();
             foreach (var rel in state.Fichiers)
             {
                 string path = P(fivemApp, rel);
-                if (state.Sauvegardes.TryGetValue(rel, out var backup) && File.Exists(backup))
+                state.Sauvegardes.TryGetValue(rel, out var backup);
+                var owner = packs.FirstOrDefault(x => (x.m.SurReshade ?? new List<string>())
+                                                      .Contains(rel, StringComparer.OrdinalIgnoreCase));
+                if (owner.m != null)
+                {
+                    // un pack installé par-dessus ReShade : on garde son fichier, et son retrait remettra
+                    // ce qu'il y avait avant ReShade (ou rien)
+                    string packCopy = P(Path.Combine(InstallsDir(), owner.id, "fichiers_remplaces"), rel);
+                    if (backup != null && File.Exists(backup))
+                        CopyFile(backup, packCopy);
+                    else
+                    {
+                        RemoveFile(packCopy);
+                        owner.m.Remplaces.RemoveAll(r => r.Equals(rel, StringComparison.OrdinalIgnoreCase));
+                        owner.m.Ajoutes.Add(rel);
+                    }
+                    owner.m.SurReshade.RemoveAll(r => r.Equals(rel, StringComparison.OrdinalIgnoreCase));
+                    WriteJson(owner.path, owner.m);
+                    log($"Gardé : {rel} (fichier du pack installé par-dessus ReShade)");
+                }
+                else if (backup != null && File.Exists(backup))
                 {
                     CopyFile(backup, path);
                     log("Remis d'origine : " + rel);

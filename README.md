@@ -13,32 +13,43 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - vider le cache FiveM.
 
 Formats de packs acceptés : arborescence `citizen` / `mods` / `plugins`, format GTA `x64/...`
-ou `update/...` (copié dans `mods`, typique des packs son), ou fichiers `.rpf` seuls dont on connaît
-le chemin dans GTA V (`RESIDENT.rpf`, `WEAPONS_PLAYER.rpf`, `EXPLOSIONS.rpf` → `mods\x64\audio\sfx\`,
-`update.rpf` → `mods\update\`, `x64a…w.rpf` / `common.rpf` → `mods\`). FiveM ne charge un `.rpf` de
-`mods` que s'il a le même chemin que dans le jeu : un `.rpf` seul au nom inconnu est refusé.
+ou `update/...` (copié dans `mods`, typique des packs son), ou fichiers `.rpf` seuls. Pour un `.rpf`
+seul, le logiciel **cherche son chemin dans le dossier de GTA V** (trouvé via `CitizenFX.ini`, le
+registre Steam / Rockstar / Epic) : par exemple `POLICE_SCANNER.rpf` → `mods\x64\audio\sfx\`.
+Si le nom existe à plusieurs endroits (`dlc.rpf`), le dossier qui l'entoure dans le pack
+départage (`mpheist\dlc.rpf`). Sans GTA V, les noms courants restent reconnus (`RESIDENT.rpf`,
+`WEAPONS_PLAYER.rpf`, `EXPLOSIONS.rpf`, `update.rpf`, `x64a…w.rpf`, `common.rpf`).
+FiveM ne charge un `.rpf` de `mods` que s'il a le même chemin que dans le jeu.
+
+Un pack peut être installé **par-dessus ReShade** (même `plugins\dxgi.dll`) : la version de ReShade
+est gardée et revient quand on retire le pack.
 
 ## Compiler
 
 Nécessite le SDK .NET 8 (`winget install Microsoft.DotNet.SDK.8`).
 
 ```bash
-dotnet build -c Release
+dotnet build src/FiveMGfxManager -c Release
 ```
 
-Le fichier `bin/Release/net48/FiveM-GFX-Manager.exe` est autonome (bibliothèques intégrées)
-et fonctionne sur Windows 10/11 sans rien installer.
+Le fichier `src/FiveMGfxManager/bin/Release/net48/FiveM-GFX-Manager.exe` est autonome
+(bibliothèques intégrées) et fonctionne sur Windows 10/11 sans rien installer.
 
 ## Tests
 
 ```bash
-cd tests
-dotnet run -- <dossier-de-test>
+cd tests/FiveMGfxManager.Tests
+dotnet run -c Release -- <dossier-de-test>
 ```
 
 ## Structure
 
-- `Core.cs` : logique (bibliothèque, packs, sauvegardes, ReShade)
-- `MainForm.cs` : interface graphique (WinForms)
-- `Program.cs` : point d'entrée
-- `tests/` : tests de la logique
+```
+src/FiveMGfxManager/
+  Core/   Core.cs (config, chemins FiveM / GTA V), Core.Archives.cs (décompression, normalisation),
+          Core.Install.cs (packs), Core.Library.cs (bibliothèque), Core.Backup.cs, Core.Reshade.cs
+  UI/     MainForm.cs (interface), Theme.cs (couleurs), Widgets.cs (contrôles dessinés)
+  Program.cs, Assets/icon.ico, app.manifest
+tests/FiveMGfxManager.Tests/   tests de la logique
+docs/LISEZMOI.txt              notice livrée avec le .exe
+```

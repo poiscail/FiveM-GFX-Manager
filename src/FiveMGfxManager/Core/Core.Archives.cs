@@ -182,17 +182,28 @@ namespace FiveMGfxManager
                     var rpfs = Directory.EnumerateFiles(folder, "*.rpf", SearchOption.AllDirectories).ToList();
                     if (rpfs.Count > 0)
                     {
-                        // FiveM ne charge un .rpf de mods\ que s'il a le même chemin que dans GTA V
-                        var unknown = rpfs.Select(Path.GetFileName).Where(n => LooseRpfPath(n) == null).Distinct().ToList();
+                        // FiveM ne charge un .rpf de mods\ que s'il a le même chemin que dans GTA V :
+                        // on cherche ce chemin dans le dossier du jeu
+                        var gta = GtaRpfIndex(log);
+                        var placed = rpfs.Select(f => (f, rel: LooseRpfPath(f, folder, gta))).ToList();
+                        var unknown = placed.Where(x => x.rel == null).Select(x => Path.GetFileName(x.f))
+                                            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                         if (unknown.Count > 0)
-                            throw new GfxException("Impossible de savoir où vont ces .rpf dans GTA V : " + string.Join(", ", unknown) +
-                                                   "\nFiveM ne les charge que s'ils sont au même chemin que dans le jeu " +
-                                                   "(ex : mods\\x64\\audio\\sfx\\RESIDENT.rpf).\n\n" +
-                                                   "Prends la version du mod qui contient les dossiers (x64\\…, update\\…), " +
+                        {
+                            var details = unknown.Select(n => gta.TryGetValue(n, out var where)
+                                ? $"{n} (existe à plusieurs endroits dans GTA V : {string.Join(", ", where.Take(4))}" +
+                                  (where.Count > 4 ? ", …" : "") + ")"
+                                : n);
+                            throw new GfxException("Impossible de savoir où vont ces .rpf dans GTA V :\n  " +
+                                                   string.Join("\n  ", details) +
+                                                   "\n\nFiveM ne les charge que s'ils sont au même chemin que dans le jeu " +
+                                                   "(ex : mods\\x64\\audio\\sfx\\RESIDENT.rpf).\n" +
+                                                   (gta.Count == 0 ? "GTA V n'a pas été trouvé sur ce PC pour chercher le chemin.\n" : "") +
+                                                   "\nPrends la version du mod qui contient les dossiers (x64\\…, update\\…), " +
                                                    "ou range-les toi-même dans un dossier « mods » avec le bon chemin, " +
                                                    "puis utilise « Ajouter un dossier… ».");
-                        foreach (var f in rpfs)
-                            files.Add((LooseRpfPath(Path.GetFileName(f)), f));
+                        }
+                        files.AddRange(placed.Select(x => (x.rel, x.f)));
                         log($"{rpfs.Count} fichier(s) .rpf placé(s) à leur chemin GTA V dans mods\\ : " +
                             string.Join(", ", files.Select(x => x.rel)));
                         var dup = files.GroupBy(f => f.rel.ToLowerInvariant()).FirstOrDefault(g => g.Count() > 1);
@@ -224,9 +235,55 @@ namespace FiveMGfxManager
         // .rpf de la racine de GTA V (common.rpf, x64a.rpf … x64w.rpf)
         static bool IsTopLevelRpf(string name) => Regex.IsMatch(name, @"^(common|x64[a-w])\.rpf$", RegexOptions.IgnoreCase);
 
-        // Chemin dans FiveM.app d'un .rpf livré seul (null : on ne sait pas où il va)
-        static string LooseRpfPath(string name)
+        // Tous les .rpf de GTA V, par nom de fichier (chemins relatifs au dossier du jeu)
+        static Dictionary<string, List<string>> GtaRpfIndex(Action<string> log)
         {
+            var index = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            string gta = GtaPath();
+            if (gta == null)
+            {
+                log("GTA V introuvable : seuls les .rpf les plus courants peuvent être rangés automatiquement.");
+                return index;
+            }
+            try
+            {
+                foreach (var f in Directory.EnumerateFiles(gta, "*.rpf", SearchOption.AllDirectories))
+                {
+                    string rel = RelPath(gta, f);
+                    if (rel.StartsWith("mods/", StringComparison.OrdinalIgnoreCase)) continue; // dossier mods d'OpenIV
+                    string name = Path.GetFileName(rel);
+                    if (!index.TryGetValue(name, out var list)) index[name] = list = new List<string>();
+                    list.Add(rel);
+                }
+                log($"Chemins des .rpf cherchés dans GTA V ({gta}).");
+            }
+            catch (Exception e) when (e is IOException || e is UnauthorizedAccessException)
+            {
+                log("  ! lecture du dossier de GTA V impossible : " + e.Message);
+            }
+            return index;
+        }
+
+        // Chemin dans FiveM.app d'un .rpf livré seul (null : on ne sait pas où il va).
+        // Le nom est cherché dans GTA V ; s'il y est plusieurs fois (dlc.rpf…), on garde l'endroit dont
+        // les dossiers ressemblent le plus à ceux du pack (ex : mpheist\dlc.rpf).
+        static string LooseRpfPath(string file, string packFolder, Dictionary<string, List<string>> gta)
+        {
+            string name = Path.GetFileName(file);
+            if (gta.TryGetValue(name, out var found))
+            {
+                string[] Parts(string rel) => rel.ToLowerInvariant().Split('/').Reverse().ToArray();
+                var mine = Parts(RelPath(packFolder, file));
+                int Score(string rel)
+                {
+                    var g = Parts(rel);
+                    int n = 0;
+                    while (n < g.Length && n < mine.Length && g[n] == mine[n]) n++;
+                    return n;
+                }
+                var best = found.GroupBy(Score).OrderByDescending(g => g.Key).First().ToList();
+                return best.Count == 1 ? "mods/" + best[0] : null;
+            }
             if (IsTopLevelRpf(name)) return "mods/" + name;
             if (name.Equals("update.rpf", StringComparison.OrdinalIgnoreCase)) return "mods/update/" + name;
             if (SfxRpfs.Contains(name.ToLowerInvariant())) return "mods/x64/audio/sfx/" + name;

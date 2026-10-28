@@ -59,11 +59,12 @@ namespace FiveMGfxManager
 
             var mine = new HashSet<string>(files, StringComparer.OrdinalIgnoreCase);
             var cfgBefore = LoadConfig();
-            // un fichier de ReShade remplacé par le pack serait perdu au retrait du pack
+            // fichiers de ReShade que le pack remplace : la version ReShade est sauvegardée comme un fichier
+            // remplacé ordinaire, et revient au retrait du pack
             var rsClash = (cfgBefore.Reshade?.Fichiers ?? new List<string>()).Where(mine.Contains).ToList();
             if (rsClash.Count > 0)
-                throw new GfxException($"Ce pack remplace des fichiers de ReShade : {string.Join(", ", rsClash)}\n\n" +
-                                       "Désinstalle ReShade (onglet ReShade), installe le pack, puis réinstalle ReShade.");
+                log($"Le pack remplace des fichiers de ReShade ({string.Join(", ", rsClash)}) : " +
+                    "ils seront remis au retrait du pack.");
             // deux packs installés ne doivent jamais toucher le même fichier (sinon le retrait casserait l'autre)
             foreach (var other in cfgBefore.PacksInstalles)
             {
@@ -81,7 +82,7 @@ namespace FiveMGfxManager
             string backupDir = Path.Combine(packDir, "fichiers_remplaces");
             Directory.CreateDirectory(backupDir);
 
-            var manifest = new Manifest { Nom = packName, Id = packId, Source = source, Date = Now() };
+            var manifest = new Manifest { Nom = packName, Id = packId, Source = source, Date = Now(), SurReshade = rsClash };
 
             // dossiers qui n'existaient pas avant (pour pouvoir les supprimer ensuite)
             var newDirs = new HashSet<string>();
@@ -197,7 +198,10 @@ namespace FiveMGfxManager
             var rs = cfg.Reshade;
             if (rs == null) return;
             rs.EnsureInit();
-            var shared = Touched(m).Where(f => rs.Fichiers.Contains(f, StringComparer.OrdinalIgnoreCase)).ToList();
+            // (les fichiers installés par-dessus ReShade reprennent simplement leur version ReShade)
+            var over = m.SurReshade ?? new List<string>();
+            var shared = Touched(m).Where(f => rs.Fichiers.Contains(f, StringComparer.OrdinalIgnoreCase) &&
+                                               !over.Contains(f, StringComparer.OrdinalIgnoreCase)).ToList();
             if (shared.Count == 0) return;
             string rsBackupDir = Path.Combine(DataDir(), "reshade_sauvegarde");
             foreach (var rel in shared)

@@ -464,5 +464,29 @@ namespace FiveMGfxManager
             }
             catch { }
         }
+
+        // Le thème dessine des traits de colonnes gris sous la dernière ligne : on les recouvre
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+            if (m.Msg != 0x000F /* WM_PAINT */ || View != View.Details) return;
+            int top = Items.Count > 0 ? GetItemRect(Items.Count - 1).Bottom : HeaderBottom();
+            if (top >= ClientSize.Height) return;
+            using (var g = CreateGraphics())
+            using (var b = new SolidBrush(BackColor))
+                g.FillRectangle(b, 0, top, ClientSize.Width, ClientSize.Height - top);
+        }
+
+        int HeaderBottom()
+        {
+            if (HeaderStyle == ColumnHeaderStyle.None) return 0;
+            var header = SendMessage(Handle, 0x101F /* LVM_GETHEADER */, IntPtr.Zero, IntPtr.Zero);
+            return header != IntPtr.Zero && GetWindowRect(header, out var r) ? r.Bottom - r.Top : 0;
+        }
+
+        [DllImport("user32.dll")]
+        static extern bool GetWindowRect(IntPtr hwnd, out RECT r);
+
+        struct RECT { public int Left, Top, Right, Bottom; }
     }
 }

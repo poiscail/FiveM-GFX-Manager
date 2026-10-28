@@ -86,6 +86,8 @@ namespace FiveMGfxManager
         [DataMember] public List<string> Ajoutes = new List<string>();
         [DataMember] public List<string> Remplaces = new List<string>();
         [DataMember] public List<string> DossiersCrees = new List<string>();
+        // fichiers de ReShade remplacés par le pack (leur version ReShade est dans fichiers_remplaces)
+        [DataMember] public List<string> SurReshade = new List<string>();
     }
 
     [DataContract]
@@ -184,6 +186,43 @@ namespace FiveMGfxManager
             foreach (char drive in "CDEFG")
                 candidates.Add(drive + @":\FiveM\FiveM.app");
             return candidates.FirstOrDefault(IsValidFivemApp);
+        }
+
+        // Dossier de GTA V : IVPath de FiveM.app\CitizenFX.ini, sinon le registre (Rockstar, Steam, Epic).
+        // FIVEM_GFX_GTA le remplace (tests) ; null si GTA V est introuvable.
+        public static string GtaPath()
+        {
+            string env = Environment.GetEnvironmentVariable("FIVEM_GFX_GTA");
+            if (env != null) return Directory.Exists(env) ? env : null;
+            var candidates = new List<string>();
+            try
+            {
+                string fivem = LoadConfig().FivemApp ?? DetectFivemApp();
+                string ini = fivem == null ? null : Path.Combine(fivem, "CitizenFX.ini");
+                if (ini != null && File.Exists(ini))
+                    candidates.AddRange(File.ReadAllLines(ini)
+                                            .Where(l => l.StartsWith("IVPath=", StringComparison.OrdinalIgnoreCase))
+                                            .Select(l => l.Substring(7).Trim()));
+            }
+            catch { }
+            foreach (var (key, value) in new[]
+            {
+                (@"SOFTWARE\WOW6432Node\Rockstar Games\Grand Theft Auto V", "InstallFolder"),
+                (@"SOFTWARE\WOW6432Node\Rockstar Games\GTAV", "InstallFolderSteam"),
+                (@"SOFTWARE\WOW6432Node\Rockstar Games\GTAV", "InstallFolderEpic"),
+                (@"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 271590", "InstallLocation"),
+            })
+            {
+                try
+                {
+                    using (var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(key))
+                        if (k?.GetValue(value) is string s) candidates.Add(s.Trim().Trim('"'));
+                }
+                catch { }
+            }
+            // Steam enregistre parfois …\GTAV\GTA5.exe : on garde le dossier
+            return candidates.Select(c => c.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(c) : c)
+                             .FirstOrDefault(c => !string.IsNullOrEmpty(c) && File.Exists(Path.Combine(c, "x64a.rpf")));
         }
 
         public static bool IsValidFivemApp(string path)

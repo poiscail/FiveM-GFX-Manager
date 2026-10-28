@@ -5,6 +5,10 @@ class T {
   static void Main(string[] a){
     string S=a[0]; Environment.SetEnvironmentVariable("FIVEM_GFX_DATA", S+"/appdata");
     Action<string> log=Console.WriteLine; Action<double> pr=_=>{};
+    Environment.SetEnvironmentVariable("FIVEM_GFX_GTA", S+"/gta"); // faux dossier GTA V
+    foreach (var f in new[]{"x64a.rpf","x64/audio/sfx/RESIDENT.rpf","x64/audio/sfx/WEAPONS_PLAYER.rpf","x64/audio/sfx/POLICE_SCANNER.rpf",
+                            "update/x64/dlcpacks/mpheist/dlc.rpf","update/x64/dlcpacks/mpbeach/dlc.rpf","mods/x64/audio/sfx/EXPLOSIONS.rpf"})
+      { Directory.CreateDirectory(Path.GetDirectoryName(S+"/gta/"+f)); File.WriteAllText(S+"/gta/"+f,"GTA"); }
     string app=S+"/FiveM.app"; Directory.CreateDirectory(app+"/citizen/common/data"); Directory.CreateDirectory(app+"/data/cache/x");
     File.WriteAllText(app+"/citizen/common/data/timecycle.xml","ORIG"); File.WriteAllText(app+"/citizen/keep.txt","keep");
     File.SetAttributes(app+"/citizen/common/data/timecycle.xml", FileAttributes.ReadOnly);
@@ -74,6 +78,15 @@ class T {
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
     Core.InstallPack(S+"/x64e.rpf",app,log,pr); Check(R(app+"/mods/x64e.rpf")=="X64E", "x64e.rpf seul range a la racine de mods");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    // chemins cherches dans le dossier de GTA V
+    W(S+"/scanner/Sons Police/POLICE_SCANNER.rpf","RADIO");
+    Core.InstallPack(S+"/scanner",app,log,pr,"Son"); Check(R(app+"/mods/x64/audio/sfx/POLICE_SCANNER.rpf")=="RADIO", ".rpf seul range au chemin trouve dans GTA V");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    W(S+"/heist/mpheist/dlc.rpf","HEIST");
+    Core.InstallPack(S+"/heist",app,log,pr); Check(R(app+"/mods/update/x64/dlcpacks/mpheist/dlc.rpf")=="HEIST", "dlc.rpf range grace a son dossier mpheist");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    W(S+"/dlc/dlc.rpf","?");
+    try { Core.InstallPack(S+"/dlc/dlc.rpf",app,log,pr); Check(false,"dlc"); } catch(GfxException e){ Check(e.Message.Contains("plusieurs endroits") && Core.InstalledPacks().Count==0, "dlc.rpf sans dossier refuse (ambigu)"); }
     Check(!Directory.Exists(app+"/mods"), "rien ne reste apres les installs directes");
 
     // --- ReShade et pack qui touchent le meme plugins/dxgi.dll ---
@@ -86,8 +99,15 @@ class T {
     Core.UninstallReshade(app,log,pr);
     Check(!File.Exists(app+"/plugins/dxgi.dll"), "desinstallation ReShade ensuite : plus de dll");
     Core.InstallReshade(app,S+"/fake/ReShade64.dll",false,null,log,pr);
-    try { Core.InstallPack(S+"/src",app,log,pr); Check(false,"rs"); } catch(GfxException e){ Check(e.Message.Contains("ReShade") && Core.InstalledPacks().Count==0 && R(app+"/plugins/dxgi.dll")=="RESHADE", "pack refuse s'il ecrase ReShade"); }
+    Core.InstallPack(S+"/src",app,log,pr);
+    Check(R(app+"/plugins/dxgi.dll")=="DLL", "pack installe par-dessus ReShade");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Check(R(app+"/plugins/dxgi.dll")=="RESHADE" && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "retrait du pack remet le dll de ReShade");
+    Core.InstallPack(S+"/src",app,log,pr);
     Core.UninstallReshade(app,log,pr);
+    Check(R(app+"/plugins/dxgi.dll")=="DLL" && !File.Exists(app+"/plugins/ReShade.ini"), "desinstallation ReShade garde le dll du pack installe par-dessus");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Check(!File.Exists(app+"/plugins/dxgi.dll") && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "puis retrait du pack : plus de dll");
     Check(!Directory.Exists(app+"/plugins") || !Directory.EnumerateFiles(app+"/plugins","*",SearchOption.AllDirectories).Any(), "plugins vide a la fin");
     // ancienne config (un seul pack) convertie
     File.WriteAllText(S+"/appdata/config.json","{\"PackInstalle\":{\"Date\":\"d\",\"Id\":\"old\",\"Nom\":\"Vieux\"}}");

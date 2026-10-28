@@ -19,13 +19,17 @@ UTILISATION CONSEILLEE
 3. Pour revenir en arriere : "Retirer", ou "Restaurer FiveM d'origine".
 4. Onglet "ReShade" -> "Installer ReShade" (telechargement automatique).
    En jeu, le menu ReShade s'ouvre avec la touche Debut (Home).
+   Un pack peut etre installe par-dessus ReShade, inutile de le desinstaller avant :
+   si le pack remplace le dxgi.dll de ReShade, celui de ReShade revient quand on retire le pack.
 
 Les sauvegardes sont dans %APPDATA%\FiveMGfxManager
 
 REMARQUES
 - Seuls les dossiers citizen, mods et plugins de FiveM.app sont geres.
   Packs son / armes : ils doivent etre fournis au format x64\... / update\... (ranges dans mods),
-  ou en .rpf seul connu (RESIDENT.rpf, WEAPONS_PLAYER.rpf, EXPLOSIONS.rpf, update.rpf, x64?.rpf).
+  ou en .rpf seul : le logiciel cherche le chemin de ce .rpf dans ton dossier GTA V
+  (ex. POLICE_SCANNER.rpf -> mods\x64\audio\sfx\). Sans GTA V trouve, seuls les noms courants
+  sont reconnus (RESIDENT.rpf, WEAPONS_PLAYER.rpf, EXPLOSIONS.rpf, update.rpf, x64?.rpf).
   FiveM ne charge un .rpf que s'il est au meme chemin que dans GTA V.
   Les fichiers bruts a remplacer avec OpenIV (.ytd, .ydr, .awc...) ne sont pas pris en charge.
 - Les archives protegees par mot de passe ne sont pas prises en charge :

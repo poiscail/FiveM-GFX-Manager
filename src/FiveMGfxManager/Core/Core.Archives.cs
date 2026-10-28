@@ -186,6 +186,11 @@ namespace FiveMGfxManager
                         // on cherche ce chemin dans le dossier du jeu
                         var gta = GtaRpfIndex(log);
                         var placed = rpfs.Select(f => (f, rel: LooseRpfPath(f, folder, gta))).ToList();
+                        // un nom qui n'existe pas dans GTA V est un pack de mods pour FiveM (ex : aQuantV.rpf) :
+                        // FiveM charge tout .rpf posé à la racine de mods\
+                        var addons = gta.Count == 0 ? new List<string>() : placed
+                            .Where(x => x.rel == null && !gta.ContainsKey(Path.GetFileName(x.f))).Select(x => x.f).ToList();
+                        placed = placed.Select(x => addons.Contains(x.f) ? (f: x.f, rel: "mods/" + Path.GetFileName(x.f)) : x).ToList();
                         var unknown = placed.Where(x => x.rel == null).Select(x => Path.GetFileName(x.f))
                                             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                         if (unknown.Count > 0)
@@ -204,8 +209,13 @@ namespace FiveMGfxManager
                                                    "puis utilise « Ajouter un dossier… ».");
                         }
                         files.AddRange(placed.Select(x => (x.rel, x.f)));
-                        log($"{rpfs.Count} fichier(s) .rpf placé(s) à leur chemin GTA V dans mods\\ : " +
-                            string.Join(", ", files.Select(x => x.rel)));
+                        var atGtaPath = placed.Where(x => !addons.Contains(x.f)).Select(x => x.rel).ToList();
+                        if (atGtaPath.Count > 0)
+                            log($"{atGtaPath.Count} fichier(s) .rpf placé(s) à leur chemin GTA V dans mods\\ : " +
+                                string.Join(", ", atGtaPath));
+                        if (addons.Count > 0)
+                            log($"{addons.Count} pack(s) .rpf pour FiveM (nom absent de GTA V) posé(s) dans mods\\ : " +
+                                string.Join(", ", addons.Select(Path.GetFileName)));
                         var dup = files.GroupBy(f => f.rel.ToLowerInvariant()).FirstOrDefault(g => g.Count() > 1);
                         if (dup != null)
                             throw new GfxException($"Deux fichiers s'appellent « {Path.GetFileName(dup.Key)} » dans le pack.\n" +

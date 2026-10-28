@@ -55,7 +55,9 @@ class T {
     Check(Core.ListLibrary().Select(p=>p.Id).SequenceEqual(new[]{g.Id,son.Id,arm.Id}), "bibliotheque triee par date d'ajout");
     try { Core.ImportPack(S+"/MonPack.7z","Graphique",log,pr); Check(false,"doublon"); } catch(GfxException e){ Check(e.Message.Contains("déjà") && Core.ListLibrary().Count==3, "meme pack importe 2 fois refuse"); }
     try { Core.ImportPack(S+"/brut","Armes",log,pr); Check(false,"brut"); } catch(GfxException e){ Check(e.Message.Contains("OpenIV") && Core.ListLibrary().Count==3, "fichiers .ytd seuls refuses proprement"); }
-    try { Core.ImportPack(S+"/weapons.rpf","Armes",log,pr); Check(false,"inconnu"); } catch(GfxException e){ Check(e.Message.Contains("weapons.rpf") && Core.ListLibrary().Count==3, ".rpf seul a chemin inconnu refuse"); }
+    var wp=Core.ImportPack(S+"/weapons.rpf","Armes",log,pr);
+    Check(File.Exists(S+"/appdata/bibliotheque/"+wp.Id+"/contenu/mods/weapons.rpf"), ".rpf au nom absent de GTA V pose a la racine de mods (pack FiveM)");
+    Core.DeleteFromLibrary(wp.Id,log);
     Core.InstallLibraryPack(g.Id,app,log,pr); Core.InstallLibraryPack(son.Id,app,log,pr); Core.InstallLibraryPack(arm.Id,app,log,pr);
     Check(Core.InstalledPacks().Count==3 && R(app+"/citizen/common/data/timecycle.xml")=="MOD", "3 packs installes ensemble");
     Check(R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON", "pack son range dans mods/x64");

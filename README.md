@@ -19,7 +19,8 @@ registre Steam / Rockstar / Epic) : par exemple `POLICE_SCANNER.rpf` → `mods\x
 Si le nom existe à plusieurs endroits (`dlc.rpf`), le dossier qui l'entoure dans le pack
 départage (`mpheist\dlc.rpf`). Sans GTA V, les noms courants restent reconnus (`RESIDENT.rpf`,
 `WEAPONS_PLAYER.rpf`, `EXPLOSIONS.rpf`, `update.rpf`, `x64a…w.rpf`, `common.rpf`).
-FiveM ne charge un `.rpf` de `mods` que s'il a le même chemin que dans le jeu.
+Un `.rpf` remplace celui du jeu s'il est au même chemin ; un `.rpf` dont le nom n'existe pas dans GTA V
+(ex. `aQuantV.rpf`, `WEAPON REPLACE.rpf`) est un pack pour FiveM et va à la racine de `mods`.
 
 Un pack peut être installé **par-dessus ReShade** (même `plugins\dxgi.dll`) : la version de ReShade
 est gardée et revient quand on retire le pack.

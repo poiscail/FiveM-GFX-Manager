@@ -75,7 +75,8 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   contient `x64a.rpf`) et `GtaRpfIndex` liste ses `.rpf` (sauf `mods\`). `LooseRpfPath` cherche le
   nom dans cet index ; s'il y est plusieurs fois (`dlc.rpf`), on garde le chemin qui partage le plus
   de dossiers de fin avec le chemin du fichier dans le pack (`mpheist\dlc.rpf`), sinon refus
-  « existe à plusieurs endroits ». Sans GTA V : règles fixes (sons `SfxRpfs` → `mods\x64\audio\sfx\`,
+  « existe à plusieurs endroits ». Nom absent de GTA V (ex. `aQuantV.rpf`) → pack .rpf pour FiveM, posé
+  à la racine de `mods` (FiveM charge tout .rpf de `mods`, cf. le dossier mods de l'utilisateur). Sans GTA V : règles fixes (sons `SfxRpfs` → `mods\x64\audio\sfx\`,
   `update.rpf` → `mods\update\`, `x64?.rpf`/`common.rpf` → `mods\`). Les `.rpf` introuvables sont
   refusés, car FiveM ne charge un `.rpf` de mods que s'il a le même chemin que dans GTA
   (https://openiv.com/?p=1132). Les fichiers bruts (`.ytd`, `.ydr`, `.awc`…) sont refusés avec un

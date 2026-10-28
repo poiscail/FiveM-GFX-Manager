@@ -30,7 +30,8 @@ REMARQUES
   ou en .rpf seul : le logiciel cherche le chemin de ce .rpf dans ton dossier GTA V
   (ex. POLICE_SCANNER.rpf -> mods\x64\audio\sfx\). Sans GTA V trouve, seuls les noms courants
   sont reconnus (RESIDENT.rpf, WEAPONS_PLAYER.rpf, EXPLOSIONS.rpf, update.rpf, x64?.rpf).
-  FiveM ne charge un .rpf que s'il est au meme chemin que dans GTA V.
+  Un .rpf dont le nom n'existe pas dans GTA V (ex. aQuantV.rpf) est pose a la racine de mods,
+  comme on le fait a la main.
   Les fichiers bruts a remplacer avec OpenIV (.ytd, .ydr, .awc...) ne sont pas pris en charge.
 - Les archives protegees par mot de passe ne sont pas prises en charge :
   decompresse-les toi-meme puis choisis "Dossier...".

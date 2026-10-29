@@ -25,8 +25,10 @@ namespace FiveMGfxManager
         public static List<PackInfo> InstalledPacks() => LoadConfig().PacksInstalles;
 
         // moveAside : sons d'armes trouvés par FindWeaponSounds à mettre de côté (remis au retrait du pack)
+        // keepOld : fichiers d'armes déjà remplacés par un pack installé que l'on garde (voir WeaponConflicts) ;
+        //           les autres armes en commun passent au nouveau pack
         public static Manifest InstallLibraryPack(string id, string fivemApp, Action<string> log, Action<double> progress,
-                                                  List<SoundHit> moveAside = null)
+                                                  List<SoundHit> moveAside = null, ICollection<string> keepOld = null)
         {
             var pack = GetLibraryPack(id);
             if (IsInstalled(id)) throw new GfxException($"Le pack « {pack.Nom} » est déjà installé.");
@@ -42,6 +44,7 @@ namespace FiveMGfxManager
                 log("Son d'arme mis de côté : " + rel.Replace('/', '\\'));
             }
             if (m.Deplaces.Count > 0) WriteJson(ManifestPath(m.Id), m);
+            ShareWeapons(m, id, fivemApp, keepOld, log);
             RecordInstall($"Installé : {pack.Nom}", m.Id);
             return m;
         }
@@ -242,6 +245,7 @@ namespace FiveMGfxManager
                 kept.RemoveAll(taken.Contains);
             }
             SaveConfig(cfg);
+            GiveBackWeapons(packId, fivemApp, log);
             log($"Pack retiré : {manifest.Ajoutes.Count} fichiers supprimés, {manifest.Remplaces.Count} fichiers d'origine remis.");
             RecordRemoval($"Retiré : {info.Nom}", info.LibId);
         }

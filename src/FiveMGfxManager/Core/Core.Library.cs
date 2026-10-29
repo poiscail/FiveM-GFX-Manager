@@ -47,16 +47,17 @@ namespace FiveMGfxManager
         public static bool IsInstalled(string libId) => InstalledPacks().Any(p => p.LibId == libId);
 
         // Copie un pack (archive, dossier ou .rpf) dans la bibliothèque, rangé et prêt à installer.
-        public static LibraryPack ImportPack(string source, string type, Action<string> log, Action<double> progress)
+        public static LibraryPack ImportPack(string source, string type, Action<string> log, Action<double> progress,
+                                             string folder = null)
         {
             Directory.CreateDirectory(LibraryDir());
             string dir = NewIdDir(LibraryDir(), out string id);
             string work = NewTempDir("fivem_gfx_");
             try
             {
-                string folder = OpenSource(source, work, log, p => progress(p * 0.7));
-                var files = NormalizePack(folder, Path.Combine(dir, "contenu"), log, type == ModType, SourceName(source));
-                string image = FindPreviewImage(folder);
+                string opened = OpenSource(source, work, log, p => progress(p * 0.7));
+                var files = NormalizePack(opened, Path.Combine(dir, "contenu"), log, type == ModType, SourceName(source));
+                string image = FindPreviewImage(opened);
                 if (image != null) CopyFile(image, Path.Combine(dir, "apercu" + Path.GetExtension(image).ToLowerInvariant()));
                 string sig = ContentSignature(Path.Combine(dir, "contenu"));
                 var same = ListLibrary().FirstOrDefault(o => o.Id != id && ContentSignature(LibraryContent(o.Id)) == sig);
@@ -64,12 +65,14 @@ namespace FiveMGfxManager
                     throw new GfxException($"Ce pack est déjà dans la bibliothèque : « {same.Nom} » (même contenu).");
                 var pack = new LibraryPack
                 {
-                    Id = id, Nom = SourceName(source), Type = type ?? "Graphique", Source = source, Date = Now(),
+                    Id = id, Nom = SourceName(source), Type = type ?? "Graphique", Source = source, Date = Now(), Dossier = folder,
                     Taille = FolderSize(Path.Combine(dir, "contenu")),
+                    Armes = StreamedFiles(Path.Combine(dir, "contenu"), files),
                 };
                 SaveLibraryPack(pack);
                 progress(1);
                 log($"Pack « {pack.Nom} » ({pack.Type}) ajouté à la bibliothèque : {files.Count} fichiers, {HumanSize(pack.Taille)}.");
+                if (pack.Armes.Count > 0) log("Armes remplacées : " + string.Join(", ", WeaponNames(pack.Armes)));
                 return pack;
             }
             catch
@@ -101,6 +104,7 @@ namespace FiveMGfxManager
                 pack.Mods = pack.Mods ?? new List<string>();
                 if (!pack.Mods.Contains(name, StringComparer.OrdinalIgnoreCase)) pack.Mods.Add(name);
                 pack.Taille = FolderSize(content);
+                pack.Armes = StreamedFiles(content, ListFiles(content));
                 SaveLibraryPack(pack);
                 progress(1);
                 log($"Mods « {name} » ajoutés à « {pack.Nom} » : {files.Count} fichiers" +
@@ -117,6 +121,94 @@ namespace FiveMGfxManager
             var cfg = LoadConfig();
             foreach (var p in cfg.PacksInstalles.Where(p => p.LibId == id)) p.Type = type;
             SaveConfig(cfg);
+        }
+
+        public static void RenamePack(string id, string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0) throw new GfxException("Le nom ne peut pas être vide.");
+            var pack = GetLibraryPack(id);
+            pack.Nom = name;
+            SaveLibraryPack(pack);
+            var cfg = LoadConfig();
+            foreach (var p in cfg.PacksInstalles.Where(p => p.LibId == id)) p.Nom = name;
+            SaveConfig(cfg);
+        }
+
+        // ------------------------------------------------------------------ //
+        //  Dossiers de rangement de la bibliothèque (dans le logiciel seulement)
+        // ------------------------------------------------------------------ //
+
+        static string FoldersPath() => Path.Combine(LibraryDir(), "dossiers.json");
+
+        // Dossiers créés (même vides) et dossiers des packs
+        public static List<string> LibraryFolders()
+        {
+            var saved = ReadJson<List<string>>(FoldersPath()) ?? new List<string>();
+            return saved.Concat(ListLibrary().Select(p => p.Dossier).Where(d => !string.IsNullOrEmpty(d)))
+                        .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(d => d, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+
+        static string FolderName(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.Length == 0) throw new GfxException("Le nom du dossier ne peut pas être vide.");
+            return name;
+        }
+
+        public static void CreateFolder(string name)
+        {
+            name = FolderName(name);
+            var all = LibraryFolders();
+            if (all.Contains(name, StringComparer.OrdinalIgnoreCase))
+                throw new GfxException($"Le dossier « {name} » existe déjà.");
+            all.Add(name);
+            Directory.CreateDirectory(LibraryDir());
+            WriteJson(FoldersPath(), all);
+        }
+
+        public static void RenameFolder(string old, string name)
+        {
+            name = FolderName(name);
+            var all = LibraryFolders();
+            if (!old.Equals(name, StringComparison.OrdinalIgnoreCase) && all.Contains(name, StringComparer.OrdinalIgnoreCase))
+                throw new GfxException($"Le dossier « {name} » existe déjà.");
+            foreach (var p in ListLibrary().Where(p => old.Equals(p.Dossier, StringComparison.OrdinalIgnoreCase)))
+            {
+                p.Dossier = name;
+                SaveLibraryPack(p);
+            }
+            WriteJson(FoldersPath(), all.Select(d => d.Equals(old, StringComparison.OrdinalIgnoreCase) ? name : d).ToList());
+        }
+
+        // Supprime le dossier : ses packs restent dans la bibliothèque, sans dossier
+        public static void DeleteFolder(string name)
+        {
+            foreach (var p in ListLibrary().Where(p => name.Equals(p.Dossier, StringComparison.OrdinalIgnoreCase)))
+            {
+                p.Dossier = null;
+                SaveLibraryPack(p);
+            }
+            WriteJson(FoldersPath(), LibraryFolders().Where(d => !d.Equals(name, StringComparison.OrdinalIgnoreCase)).ToList());
+        }
+
+        // Range des packs dans un dossier (null : aucun dossier)
+        public static void MoveToFolder(IEnumerable<string> ids, string folder)
+        {
+            folder = string.IsNullOrWhiteSpace(folder) ? null : folder.Trim();
+            if (folder != null)
+            {
+                var all = LibraryFolders();
+                var existing = all.FirstOrDefault(d => d.Equals(folder, StringComparison.OrdinalIgnoreCase));
+                if (existing != null) folder = existing;
+                else CreateFolder(folder);
+            }
+            foreach (var id in ids)
+            {
+                var p = GetLibraryPack(id);
+                p.Dossier = folder;
+                SaveLibraryPack(p);
+            }
         }
 
         public static void DeleteFromLibrary(string id, Action<string> log)

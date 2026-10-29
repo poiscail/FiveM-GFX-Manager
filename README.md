@@ -6,7 +6,12 @@ Logiciel Windows (aucune installation nécessaire) pour :
   des dossiers ou des `.rpf` (bouton ou glisser-déposer), il les range et les stocke ;
 - choisir quel pack **installer** dans `FiveM.app` : packs **graphiques**, packs **son**
   et **remplacements d'armes** (plusieurs packs à la fois, conflits détectés) ;
-- **ajouter des mods** à un pack existant, changer son type, le supprimer ;
+- **ajouter des mods** à un pack existant, changer son type, le **renommer** (F2), le supprimer ;
+- ranger les packs dans des **dossiers** (bouton « Dossier » : dossier affiché, nouveau / renommer /
+  supprimer ; clic droit › « Ranger dans un dossier ») ; les packs ajoutés vont dans le dossier affiché ;
+- **armes suivies** : le logiciel retient quelles armes chaque pack remplace ; si une arme est déjà
+  remplacée par un pack installé, il demande pour chacune de **garder l'ancienne ou prendre la
+  nouvelle** (le paquet de l'autre pack est refait sans elle, et elle lui revient quand on retire le pack) ;
 - retirer un ou plusieurs packs (clic droit, touche Suppr) et remettre les fichiers d'origine ;
 - installer un nouveau pack son ou d'armes : l'ancien qui touche les mêmes fichiers est retiré ;
 - avant de coller un pack son : chercher dans tous les dossiers et sous-dossiers de FiveM.app (et dans les `.rpf`), ainsi que dans `GTA V\mods`, les sons d'armes déjà présents, et proposer de les mettre de côté (ils reviennent au retrait du pack) ;

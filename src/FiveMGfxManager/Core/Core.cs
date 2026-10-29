@@ -48,6 +48,8 @@ namespace FiveMGfxManager
         [DataMember] public string Date;
         [DataMember] public long Taille;
         [DataMember] public List<string> Mods = new List<string>();
+        [DataMember] public string Dossier;      // dossier de rangement dans le logiciel (null : aucun)
+        [DataMember] public List<string> Armes;  // fichiers du jeu remplacés (.ydr, .ytd…) ; null : pas encore calculé
     }
 
     [DataContract]
@@ -92,6 +94,10 @@ namespace FiveMGfxManager
         [DataMember] public List<string> Deplaces = new List<string>();
         // dossier de GTA V où sont allés les sons (mods/x64/audio/… → x64\audio\…) ; null : tout est dans FiveM.app
         [DataMember] public string DossierGta;
+        // fichiers du jeu remplacés par les paquets du pack (null : installé avant la v1.4)
+        [DataMember] public List<string> Armes;
+        // fichiers retirés des paquets du pack → id d'installation du pack qui les fournit à la place
+        [DataMember] public Dictionary<string, string> Exclues;
     }
 
     [DataContract]

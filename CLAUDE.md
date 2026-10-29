@@ -37,7 +37,8 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Core/Core.Archives.cs` | Décompression (SharpCompress), `NormalizePack`, chemin GTA des `.rpf` seuls (`GtaRpfIndex`, `LooseRpfPath`) |
 | `Core/Core.Rpf.cs` | Lecteur / écrivain RPF7 non chiffré, paquets de mods FiveM (`assembly.xml`, `WriteModPackage`) |
 | `Core/Core.Install.cs` | Installer / retirer un pack, conflits, `HandOverToReshade`, cache |
-| `Core/Core.Library.cs` | Bibliothèque de packs (import, mods ajoutés, type, suppression) |
+| `Core/Core.Library.cs` | Bibliothèque de packs (import, mods ajoutés, type, renommage, suppression) et dossiers de rangement (`LibraryPack.Dossier` + `bibliotheque\dossiers.json`, dans le logiciel seulement) |
+| `Core/Core.Weapons.cs` | Armes suivies : `LibraryPack.Armes` (fichiers streamés des paquets `mods\*.rpf` à `assembly.xml`, calculé à l'import ou à la demande), `WeaponConflicts` (armes déjà remplacées par un pack installé), `ShareWeapons` à l'installation (`keepOld` : fichiers laissés à l'ancien pack ; sinon le nouveau gagne) qui refait nos paquets `gfx_*` sans les fichiers perdus (`FilterPackage`, paquets d'autres auteurs laissés tels quels avec un avertissement) et note `Manifest.Exclues` (fichier → pack qui le garde) ; `GiveBackWeapons` au retrait rend les fichiers |
 | `Core/Core.Scan.cs` | Recherche des sons d'armes déjà présents avant un pack son (`FindWeaponSounds`, lecteur RPF7 non chiffré `RpfEntries`) |
 | `Core/Core.Backup.cs` | Sauvegarde et restauration d'origine |
 | `Core/Core.Reshade.cs` | Téléchargement / installation / désinstallation de ReShade |
@@ -51,7 +52,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (93 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (114 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement

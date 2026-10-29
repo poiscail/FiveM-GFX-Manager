@@ -67,6 +67,36 @@ class T {
     string asm=System.Text.Encoding.UTF8.GetString(Core.ReadRpfFile(pk,"assembly.xml"));
     Check(asm.Contains("target=\"Five\"") && asm.Contains("<add source=\"w_pi_pistol.ytd\">w_pi_pistol.ytd</add>") && asm.Contains("<name>Glock Or</name>") && System.Text.RegularExpressions.Regex.IsMatch(asm,"id=\"\\{[0-9A-F-]{36}\\}\""), "assembly.xml lisible par FiveM");
     Check(Core.ReadRpfFile(pk,"content/w_pi_pistol.ytd").SequenceEqual(Rsc("TEXTURE")), "ressource intacte dans le paquet");
+    // deux packs d'armes qui remplacent le meme pistolet : choix arme par arme
+    { Directory.CreateDirectory(S+"/Glock Noir/stream"); File.WriteAllBytes(S+"/Glock Noir/stream/w_pi_pistol.ydr",Rsc("NOIR")); File.WriteAllBytes(S+"/Glock Noir/stream/w_sb_smg.ydr",Rsc("SMG"));
+      var gn=Core.ImportPack(S+"/Glock Noir","Armes",log,pr,"Armes RP");
+      Check(Core.WeaponNames(gl.Armes).SequenceEqual(new[]{"w_pi_pistol"}) && Core.WeaponNames(gn.Armes).SequenceEqual(new[]{"w_pi_pistol","w_sb_smg"}), "armes de chaque pack retenues a l'import");
+      Check(gn.Dossier=="Armes RP" && Core.LibraryFolders().SequenceEqual(new[]{"Armes RP"}), "pack importe dans un dossier");
+      Core.InstallLibraryPack(gl.Id,app,log,pr);
+      var wc=Core.WeaponConflicts(gn.Id,app);
+      Check(wc.Count==1 && wc[0].Arme=="w_pi_pistol" && wc[0].Fichiers.SequenceEqual(new[]{"w_pi_pistol.ydr"}) && wc[0].Pack.LibId==gl.Id, "arme deja remplacee par un pack installe reperee");
+      System.Collections.Generic.List<string> In(string f)=>Core.ReadRpfEntries(f)?.Select(x=>x.Path).Where(x=>x.StartsWith("content/")).OrderBy(x=>x).ToList();
+      // garder l'ancienne : le nouveau pack s'installe sans son pistolet
+      Core.InstallLibraryPack(gn.Id,app,log,pr,null,new[]{"w_pi_pistol.ydr"});
+      Check(In(app+"/mods/gfx_glock_noir.rpf").SequenceEqual(new[]{"content/w_sb_smg.ydr"}) && In(app+"/mods/gfx_glock_or.rpf").Count==2, "garder l'ancienne : le nouveau pack n'a pas le pistolet");
+      Core.UninstallPack(Core.InstalledPacks().Single(p=>p.LibId==gn.Id).Id,app,log,pr);
+      Check(!File.Exists(app+"/mods/gfx_glock_noir.rpf") && In(app+"/mods/gfx_glock_or.rpf").Count==2, "retrait du nouveau pack : l'ancien intact");
+      // prendre la nouvelle : l'ancien pack perd son pistolet, et le recupere au retrait du nouveau
+      Core.InstallLibraryPack(gn.Id,app,log,pr,null,new string[0]);
+      Check(In(app+"/mods/gfx_glock_or.rpf").SequenceEqual(new[]{"content/w_pi_pistol.ytd"}) && In(app+"/mods/gfx_glock_noir.rpf").Count==2, "prendre la nouvelle : l'ancien pack perd le pistolet");
+      Check(Core.ReadRpfFile(app+"/mods/gfx_glock_or.rpf","content/w_pi_pistol.ytd").SequenceEqual(Rsc("TEXTURE")) && Core.WeaponConflicts(gl.Id,app).Single().Arme=="w_pi_pistol", "paquet refait intact, arme toujours suivie");
+      Core.UninstallPack(Core.InstalledPacks().Single(p=>p.LibId==gn.Id).Id,app,log,pr);
+      Check(In(app+"/mods/gfx_glock_or.rpf").SequenceEqual(new[]{"content/w_pi_pistol.ydr","content/w_pi_pistol.ytd"}) && Core.ReadRpfFile(app+"/mods/gfx_glock_or.rpf","content/w_pi_pistol.ydr").SequenceEqual(Rsc("MODELE")), "retrait du nouveau : l'ancien recupere son pistolet");
+      Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+      Check(!File.Exists(app+"/mods/gfx_glock_or.rpf"), "tout retire proprement");
+      // renommer, ranger, dossiers
+      Core.RenamePack(gn.Id,"Glock Noir RP"); Core.MoveToFolder(new[]{gl.Id},"armes rp"); Core.CreateFolder("Vide");
+      Check(Core.GetLibraryPack(gn.Id).Nom=="Glock Noir RP" && Core.GetLibraryPack(gl.Id).Dossier=="Armes RP" && Core.LibraryFolders().SequenceEqual(new[]{"Armes RP","Vide"}), "pack renomme et range, dossier vide garde");
+      Core.RenameFolder("Armes RP","Armes"); Check(Core.GetLibraryPack(gl.Id).Dossier=="Armes" && Core.GetLibraryPack(gn.Id).Dossier=="Armes", "dossier renomme");
+      Core.DeleteFolder("Armes"); Core.DeleteFolder("Vide");
+      Check(Core.GetLibraryPack(gn.Id).Dossier==null && Core.LibraryFolders().Count==0 && Core.ListLibrary().Count==5, "dossier supprime, packs gardes");
+      try { Core.RenamePack(gn.Id," "); Check(false,"nom vide"); } catch(GfxException){ Check(true,"nom vide refuse"); }
+      Core.DeleteFromLibrary(gn.Id,log); }
     Core.DeleteFromLibrary(gl.Id,log);
     // .rpf d'armes sans assembly.xml (FiveM l'ignorerait) : mis dans un paquet
     { var r=new byte[1024]; var w=new BinaryWriter(new MemoryStream(r));

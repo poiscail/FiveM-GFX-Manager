@@ -56,8 +56,10 @@ namespace FiveMGfxManager
         readonly Badge detailType = new Badge();
         readonly Badge detailState = new Badge();
         readonly Label detailSize = new Label(), detailAdded = new Label(), detailInstalled = new Label(),
-                       detailSource = new Label(), detailMods = new Label();
-        FlatButton installBtn, removeBtn, addModsBtn, typeBtn, deleteBtn;
+                       detailSource = new Label(), detailMods = new Label(), detailFolder = new Label(),
+                       detailWeapons = new Label();
+        FlatButton installBtn, removeBtn, addModsBtn, typeBtn, deleteBtn, folderBtn;
+        string folderFilter; // null : tous les packs, "" : sans dossier, sinon le dossier affiché
 
         // État des pages Sauvegarde et ReShade
         StatusCard backupCard, reshadeCard, quantvCard;
@@ -386,7 +388,7 @@ namespace FiveMGfxManager
             page.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             // ajout à la bibliothèque
-            var bar = Columns(5, fill: 4);
+            var bar = Columns(6, fill: 5);
             bar.Controls.Add(typeLabel, 0, 0);
             typeBox.Anchor = AnchorStyles.Left;
             typeBox.AutoSize = true;
@@ -394,6 +396,10 @@ namespace FiveMGfxManager
             bar.Controls.Add(typeBox, 1, 0);
             bar.Controls.Add(Btn("Ajouter des archives…", ImportArchives, ButtonKind.Primary, Glyph.Add), 2, 0);
             bar.Controls.Add(Btn("Ajouter un dossier…", ImportFolder, ButtonKind.Secondary, Glyph.Folder), 3, 0);
+            folderBtn = Btn("Dossier : tous ▾", ShowFolderMenu, ButtonKind.Ghost, Glyph.Folder);
+            folderBtn.Margin = new Padding(14, 0, 0, 0);
+            tips.SetToolTip(folderBtn, "Ranger les packs dans des dossiers et choisir le dossier affiché");
+            bar.Controls.Add(folderBtn, 4, 0);
             bar.Margin = new Padding(0, 0, 0, 14);
             tips.SetToolTip(typeBox, "Type donné aux packs que tu ajoutes (modifiable ensuite)");
             page.Controls.Add(bar, 0, 0);
@@ -439,7 +445,9 @@ namespace FiveMGfxManager
             // Suppr : retire de FiveM les packs sélectionnés (ou les supprime de la bibliothèque s'ils ne sont pas installés)
             packList.KeyDown += (s, e) =>
             {
-                if (busy || e.KeyCode != Keys.Delete) return;
+                if (busy) return;
+                if (e.KeyCode == Keys.F2) { RenameSelected(); return; }
+                if (e.KeyCode != Keys.Delete) return;
                 if (SelectedRows().Any(r => r.Inst != null)) UninstallSelected();
                 else DeleteSelected();
             };
@@ -475,8 +483,14 @@ namespace FiveMGfxManager
             var remove = new ToolStripMenuItem("Retirer de FiveM", null, (s, e) => UninstallSelected()) { Tag = "danger" };
             var mods = new ToolStripMenuItem("Ajouter des mods au pack…", null, (s, e) => AddMods());
             var type = new ToolStripMenuItem("Changer le type…", null, (s, e) => ChangeType());
+            var rename = new ToolStripMenuItem("Renommer…", null, (s, e) => RenameSelected()) { ShortcutKeyDisplayString = "F2" };
+            var folder = new ToolStripMenuItem("Ranger dans un dossier");
+            folder.DropDown = new ToolStripDropDownMenu { Renderer = new DarkMenuRenderer(), Font = menu.Font, ShowImageMargin = false };
             var delete = new ToolStripMenuItem("Supprimer de la bibliothèque", null, (s, e) => DeleteSelected()) { Tag = "danger" };
-            menu.Items.AddRange(new ToolStripItem[] { install, remove, new ToolStripSeparator(), mods, type, new ToolStripSeparator(), delete });
+            menu.Items.AddRange(new ToolStripItem[]
+            {
+                install, remove, new ToolStripSeparator(), mods, type, rename, folder, new ToolStripSeparator(), delete,
+            });
             foreach (ToolStripItem i in menu.Items) { i.ForeColor = Theme.Fg; i.Padding = new Padding(4, 3, 4, 3); }
             menu.Opening += (s, e) =>
             {
@@ -487,11 +501,15 @@ namespace FiveMGfxManager
                 install.Visible = one && rows[0].Inst == null;
                 remove.Visible = inst > 0;
                 remove.Text = inst > 1 ? $"Retirer les {inst} packs de FiveM" : "Retirer de FiveM";
-                mods.Visible = type.Visible = one && rows[0].Lib != null;
+                mods.Visible = type.Visible = rename.Visible = one && rows[0].Lib != null;
+                var libIds = rows.Where(r => r.Lib != null).Select(r => r.Lib.Id).ToList();
+                folder.Visible = libIds.Count > 0;
+                if (folder.Visible) FillFolderMenu(folder.DropDownItems, libIds, rows.First(r => r.Lib != null).Lib.Dossier);
                 delete.Visible = del > 0;
                 delete.Text = del > 1 ? $"Supprimer les {del} packs de la bibliothèque" : "Supprimer de la bibliothèque";
-                menu.Items[2].Visible = (install.Visible || remove.Visible) && (mods.Visible || delete.Visible);
-                menu.Items[5].Visible = mods.Visible && delete.Visible;
+                bool middle = mods.Visible || folder.Visible;
+                menu.Items[2].Visible = (install.Visible || remove.Visible) && (middle || delete.Visible);
+                menu.Items[7].Visible = middle && delete.Visible;
             };
             return menu;
         }
@@ -573,7 +591,8 @@ namespace FiveMGfxManager
             foreach (var (key, value) in new[]
             {
                 ("Taille", detailSize), ("Ajouté le", detailAdded), ("Installé le", detailInstalled),
-                ("Source", detailSource), ("Mods ajoutés", detailMods),
+                ("Source", detailSource), ("Mods ajoutés", detailMods), ("Dossier", detailFolder),
+                ("Armes", detailWeapons),
             })
             {
                 int row = grid.RowCount++;
@@ -643,6 +662,11 @@ namespace FiveMGfxManager
             bool mods = r.Lib?.Mods != null && r.Lib.Mods.Count > 0;
             detailMods.Text = mods ? $"{r.Lib.Mods.Count} : {string.Join(", ", r.Lib.Mods)}" : "aucun";
             tips.SetToolTip(detailMods, mods ? string.Join("\n", r.Lib.Mods) : "");
+            detailFolder.Text = string.IsNullOrEmpty(r.Lib?.Dossier) ? "aucun" : r.Lib.Dossier;
+            var weapons = new List<string>();
+            try { if (r.Lib != null) weapons = Core.WeaponNames(Core.PackWeapons(r.Lib)); } catch { }
+            detailWeapons.Text = weapons.Count == 0 ? "aucune" : $"{weapons.Count} : {string.Join(", ", weapons)}";
+            tips.SetToolTip(detailWeapons, string.Join("\n", weapons));
 
             installBtn.Visible = r.Inst == null;
             removeBtn.Visible = r.Inst != null;
@@ -661,7 +685,8 @@ namespace FiveMGfxManager
             detailType.Set(types.Count == 1 ? types[0] : "Plusieurs types", types.Count == 1 ? Theme.TypeColor(types[0]) : Theme.Muted);
             detailState.Set(inst == 0 ? "Aucun installé" : $"{inst} installé{(inst > 1 ? "s" : "")}", inst == 0 ? Theme.Muted : Theme.Ok);
             detailSize.Text = Core.HumanSize(rows.Where(x => x.Lib != null).Sum(x => x.Lib.Taille));
-            detailAdded.Text = detailInstalled.Text = detailMods.Text = "—";
+            detailAdded.Text = detailInstalled.Text = detailMods.Text = detailFolder.Text = detailWeapons.Text = "—";
+            tips.SetToolTip(detailWeapons, "");
             detailSource.Text = names;
             tips.SetToolTip(detailSource, string.Join("\n", rows.Select(x => x.Nom)));
 
@@ -688,7 +713,15 @@ namespace FiveMGfxManager
             rows.AddRange(installed.Where(i => i.LibId == null || rows.All(r => r.Lib.Id != i.LibId))
                                    .Select(i => new PackRow { Inst = i }));
             var all = rows;
-            rows = all.Where(r => (r.Type == Core.ModType) == ModsView).ToList();
+            var folders = Core.LibraryFolders();
+            if (!string.IsNullOrEmpty(folderFilter) && !folders.Contains(folderFilter, StringComparer.OrdinalIgnoreCase))
+                folderFilter = null; // dossier supprimé ou renommé ailleurs
+            rows = all.Where(r => (r.Type == Core.ModType) == ModsView)
+                      .Where(r => folderFilter == null ||
+                                  string.Equals(r.Lib?.Dossier ?? "", folderFilter, StringComparison.OrdinalIgnoreCase))
+                      .ToList();
+            folderBtn.Text = folderFilter == null ? "Dossier : tous ▾" : folderFilter == "" ? "Dossier : sans dossier ▾"
+                           : $"Dossier : {folderFilter} ▾";
 
             packList.BeginUpdate();
             packList.Items.Clear();
@@ -703,14 +736,22 @@ namespace FiveMGfxManager
                     r.Inst == null ? "Bibliothèque" : r.Lib == null ? "Installé (hors bibl.)" : "Installé",
                 })
                 { Tag = r };
-                if (r.Lib?.Mods != null && r.Lib.Mods.Count > 0)
-                    item.ToolTipText = "Mods ajoutés : " + string.Join(", ", r.Lib.Mods);
+                var tip = new List<string>();
+                if (!string.IsNullOrEmpty(r.Lib?.Dossier)) tip.Add("Dossier : " + r.Lib.Dossier);
+                if (r.Lib?.Mods != null && r.Lib.Mods.Count > 0) tip.Add("Mods ajoutés : " + string.Join(", ", r.Lib.Mods));
+                if (r.Lib?.Armes != null && r.Lib.Armes.Count > 0) tip.Add("Armes : " + string.Join(", ", Core.WeaponNames(r.Lib.Armes)));
+                item.ToolTipText = string.Join("\n", tip);
                 packList.Items.Add(item);
                 if (selected.Contains(r.Key)) item.Selected = true;
             }
             packList.EndUpdate();
             FitColumns();
             emptyList.Visible = rows.Count == 0;
+            emptyList.Text = folderFilter != null && all.Any(r => (r.Type == Core.ModType) == ModsView)
+                ? "Aucun " + Noun + " dans ce dossier.\n\nClic droit sur un " + Noun + " › « Ranger dans un dossier »,\n" +
+                  "ou choisis un autre dossier en haut."
+                : "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\n" +
+                  "ou clique sur « Ajouter des archives… ».";
             if (emptyList.Visible) emptyList.BringToFront();
             ShowDetails();
 
@@ -1134,6 +1175,7 @@ namespace FiveMGfxManager
         {
             if (sources == null || sources.Length == 0 || busy) return;
             string type = ModsView ? Core.ModType : (string)typeBox.SelectedItem;
+            string folder = string.IsNullOrEmpty(folderFilter) ? null : folderFilter; // rangé dans le dossier affiché
             RunTask((log, p) =>
             {
                 // un fichier refusé n'empêche pas d'importer les suivants
@@ -1141,7 +1183,7 @@ namespace FiveMGfxManager
                 for (int i = 0; i < sources.Length; i++)
                 {
                     int k = i;
-                    try { Core.ImportPack(sources[i], type, log, x => p((k + x) / sources.Length)); }
+                    try { Core.ImportPack(sources[i], type, log, x => p((k + x) / sources.Length), folder); }
                     catch (Exception ex) when (sources.Length > 1)
                     {
                         errors.Add($"{Path.GetFileName(sources[i].TrimEnd('\\', '/'))} : {ex.Message}");
@@ -1179,6 +1221,7 @@ namespace FiveMGfxManager
             var old = conflicts.Concat(Core.InstalledPacks().Where(i => i.Type == "Graphique" && r.Lib.Type == "Graphique"))
                                .GroupBy(i => i.Id).Select(g => g.First()).ToList();
             var removed = new HashSet<string>();
+            var removedIds = new HashSet<string>();
             if (old.Count > 0)
             {
                 string list = string.Join("\n", old.Select(i => $"  • {i.Nom} ({i.Type})"));
@@ -1188,6 +1231,7 @@ namespace FiveMGfxManager
                     foreach (var s in old)
                     {
                         removed.Add(s.Nom);
+                        removedIds.Add(s.Id);
                         steps.Add((log, p) => Core.UninstallPack(s.Id, fivem, log, p));
                     }
                 else if (conflicts.Count > 0)
@@ -1223,8 +1267,19 @@ namespace FiveMGfxManager
                     return;
             }
 
+            // armes déjà remplacées par un autre pack installé : on demande laquelle garder
+            HashSet<string> keepOld = null;
+            List<WeaponClash> clashes;
+            try { clashes = Core.WeaponConflicts(r.Lib.Id, fivem).Where(c => !removedIds.Contains(c.Pack.Id)).ToList(); }
+            catch (Exception ex) { clashes = new List<WeaponClash>(); Log("Armes : vérification impossible (" + ex.Message + ")"); }
+            if (clashes.Count > 0)
+            {
+                keepOld = AskWeapons(r.Nom, clashes);
+                if (keepOld == null) return;
+            }
+
             string id = r.Lib.Id;
-            steps.Add((log, p) => Core.InstallLibraryPack(id, fivem, log, p, moveAside));
+            steps.Add((log, p) => Core.InstallLibraryPack(id, fivem, log, p, moveAside, keepOld));
             RunTask((log, p) => { foreach (var s in steps) s(log, p); });
         }
 
@@ -1302,6 +1357,152 @@ namespace FiveMGfxManager
             if (type == null || type == r.Lib.Type) return;
             Core.SetPackType(r.Lib.Id, type);
             RefreshStatus();
+        }
+
+        void RenameSelected()
+        {
+            var r = RequireSelection();
+            if (r == null || busy) return;
+            if (r.Lib == null)
+            {
+                Info("Packs", "Ce pack a été installé hors bibliothèque : on ne peut pas le renommer.");
+                return;
+            }
+            string name = AskText($"Renommer « {r.Nom} »", "Nouveau nom :", r.Nom);
+            if (name == null || name == r.Nom) return;
+            Try(() => Core.RenamePack(r.Lib.Id, name));
+        }
+
+        // Lance une petite action de la bibliothèque, puis rafraîchit la liste
+        void Try(Action a)
+        {
+            try { a(); }
+            catch (Exception ex) { Info("Erreur", ex.Message); }
+            RefreshStatus();
+        }
+
+        static ToolStripMenuItem MenuItem(string text, Action onClick, bool check = false, string tag = null) =>
+            new ToolStripMenuItem(text, null, (s, e) => onClick()) { Checked = check, Tag = tag, ForeColor = Theme.Fg, Padding = new Padding(4, 3, 4, 3) };
+
+        // Sous-menu « Ranger dans un dossier »
+        void FillFolderMenu(ToolStripItemCollection items, List<string> ids, string current)
+        {
+            items.Clear();
+            foreach (var d in Core.LibraryFolders())
+            {
+                string folder = d;
+                items.Add(MenuItem(d, () => Try(() => Core.MoveToFolder(ids, folder)),
+                                   string.Equals(d, current, StringComparison.OrdinalIgnoreCase)));
+            }
+            if (items.Count > 0) items.Add(new ToolStripSeparator());
+            items.Add(MenuItem("Nouveau dossier…", () =>
+            {
+                string name = AskText("Nouveau dossier", "Nom du dossier :", "");
+                if (name != null) Try(() => Core.MoveToFolder(ids, name));
+            }));
+            if (!string.IsNullOrEmpty(current))
+                items.Add(MenuItem("Sortir du dossier", () => Try(() => Core.MoveToFolder(ids, null))));
+        }
+
+        // Bouton « Dossier » : dossier affiché et gestion des dossiers
+        void ShowFolderMenu()
+        {
+            var menu = new ContextMenuStrip { Renderer = new DarkMenuRenderer(), Font = Theme.Ui(9.5F), ShowImageMargin = false };
+            void Show(string f) { folderFilter = f; RefreshPackList(); }
+            menu.Items.Add(MenuItem("Tous les " + Noun + "s", () => Show(null), folderFilter == null));
+            menu.Items.Add(MenuItem("Sans dossier", () => Show(""), folderFilter == ""));
+            var folders = Core.LibraryFolders();
+            if (folders.Count > 0) menu.Items.Add(new ToolStripSeparator());
+            foreach (var d in folders)
+            {
+                string folder = d;
+                int n = Core.ListLibrary().Count(p => string.Equals(p.Dossier, d, StringComparison.OrdinalIgnoreCase));
+                menu.Items.Add(MenuItem($"{d}  ({n})", () => Show(folder), string.Equals(d, folderFilter, StringComparison.OrdinalIgnoreCase)));
+            }
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(MenuItem("Nouveau dossier…", () =>
+            {
+                string name = AskText("Nouveau dossier", "Nom du dossier :", "");
+                if (name == null) return;
+                Try(() => Core.CreateFolder(name));
+                if (Core.LibraryFolders().Contains(name, StringComparer.OrdinalIgnoreCase)) Show(name);
+            }));
+            if (!string.IsNullOrEmpty(folderFilter))
+            {
+                string cur = folderFilter;
+                menu.Items.Add(MenuItem($"Renommer « {cur} »…", () =>
+                {
+                    string name = AskText("Renommer le dossier", "Nouveau nom :", cur);
+                    if (name == null || name == cur) return;
+                    Try(() => { Core.RenameFolder(cur, name); folderFilter = name; });
+                }));
+                menu.Items.Add(MenuItem($"Supprimer « {cur} »", () =>
+                {
+                    if (Ask("Supprimer le dossier", $"Supprimer le dossier « {cur} » ?\n(ses packs restent dans la bibliothèque, sans dossier)"))
+                        Try(() => { Core.DeleteFolder(cur); folderFilter = null; });
+                }, tag: "danger"));
+            }
+            menu.Closed += (s, e) => BeginInvoke(new Action(menu.Dispose));
+            menu.Show(folderBtn, new Point(0, folderBtn.Height));
+        }
+
+        // Armes déjà remplacées par un pack installé : garder l'ancienne ou prendre la nouvelle, arme par arme.
+        // Renvoie les fichiers à laisser à l'ancien pack, ou null si annulé.
+        HashSet<string> AskWeapons(string pack, List<WeaponClash> clashes)
+        {
+            using (var f = new Form
+            {
+                Text = "Armes déjà remplacées", FormBorderStyle = FormBorderStyle.FixedDialog, StartPosition = FormStartPosition.CenterParent,
+                MinimizeBox = false, MaximizeBox = false, ShowInTaskbar = false, BackColor = Theme.Card, ForeColor = Theme.Fg,
+                Font = Font, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(20),
+                AutoScaleMode = AutoScaleMode.None,
+            })
+            {
+                f.HandleCreated += (s, e) => Theme.DarkTitleBar(f);
+                var flow = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+                flow.Controls.Add(Lbl($"« {pack} » remplace des armes déjà modifiées par un pack installé.\n" +
+                                      "Pour chaque arme, choisis la version à garder :",
+                                      Theme.Fg, new Padding(0, 0, 0, LogicalToDeviceUnits(14))));
+                string[] choices = { "Garder l'ancienne", "Prendre la nouvelle" };
+                var table = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Margin = new Padding(0, 0, 0, LogicalToDeviceUnits(14)) };
+                var all = new Segmented(choices) { SelectedItem = choices[1], Height = LogicalToDeviceUnits(32) };
+                all.Size = all.GetPreferredSize(Size.Empty);
+                table.Controls.Add(Lbl("Toutes les armes", Theme.Muted, new Padding(0, 0, LogicalToDeviceUnits(18), LogicalToDeviceUnits(10))), 0, 0);
+                all.Margin = new Padding(0, 0, 0, LogicalToDeviceUnits(10));
+                table.Controls.Add(all, 1, 0);
+                var rows = new List<(WeaponClash c, Segmented s)>();
+                foreach (var c in clashes)
+                {
+                    var seg = new Segmented(choices) { SelectedItem = choices[1], Height = LogicalToDeviceUnits(32) };
+                    seg.Size = seg.GetPreferredSize(Size.Empty);
+                    seg.Margin = new Padding(0, 0, 0, LogicalToDeviceUnits(6));
+                    var label = Lbl($"{c.Arme}  —  déjà dans « {c.Pack.Nom} »", Theme.Fg,
+                                    new Padding(0, 0, LogicalToDeviceUnits(18), LogicalToDeviceUnits(6)));
+                    tips.SetToolTip(label, string.Join("\n", c.Fichiers));
+                    int row = table.RowCount++;
+                    table.Controls.Add(label, 0, row);
+                    table.Controls.Add(seg, 1, row);
+                    rows.Add((c, seg));
+                }
+                all.SelectedIndexChanged += (s, e) => { foreach (var x in rows) x.s.SelectedItem = all.SelectedItem; };
+                var buttons = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0) };
+                var ok = new FlatButton("Installer", Glyph.Check, ButtonKind.Primary) { AutoSize = true, Height = LogicalToDeviceUnits(36) };
+                ok.Padding = new Padding(LogicalToDeviceUnits(16), 0, LogicalToDeviceUnits(16), 0);
+                ok.Click += (s, e) => { f.DialogResult = DialogResult.OK; };
+                var cancel = new FlatButton("Annuler", null, ButtonKind.Ghost) { AutoSize = true, Height = LogicalToDeviceUnits(36) };
+                cancel.Padding = ok.Padding;
+                cancel.Click += (s, e) => { f.DialogResult = DialogResult.Cancel; };
+                buttons.Controls.Add(ok);
+                buttons.Controls.Add(cancel);
+                flow.Controls.Add(table);
+                flow.Controls.Add(buttons);
+                f.Controls.Add(flow);
+                f.KeyPreview = true;
+                f.KeyDown += (s, e) => { if (e.KeyCode == Keys.Escape) f.DialogResult = DialogResult.Cancel; };
+                if (f.ShowDialog(this) != DialogResult.OK) return null;
+                return new HashSet<string>(rows.Where(x => x.s.SelectedItem == choices[0]).SelectMany(x => x.c.Fichiers),
+                                           StringComparer.OrdinalIgnoreCase);
+            }
         }
 
         void DeleteSelected()

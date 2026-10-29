@@ -16,6 +16,14 @@ UTILISATION CONSEILLEE
    bibliotheque. Selectionne un pack -> "Installer". Plusieurs packs peuvent etre installes
    en meme temps (ex. un graphique + un son + des armes).
    "Ajouter des mods au pack..." ajoute d'autres fichiers a un pack de la bibliotheque.
+   Clic droit -> "Renommer..." (ou F2) pour changer le nom d'un pack.
+   Bouton "Dossier" (en haut) : cree des dossiers et choisis celui qui est affiche.
+   Clic droit -> "Ranger dans un dossier" pour y mettre des packs. Les packs ajoutes
+   vont directement dans le dossier affiche.
+   Armes : le logiciel retient quelles armes chaque pack remplace. Si tu installes un
+   pack d'armes alors qu'une de ses armes est deja remplacee par un autre pack installe,
+   il te demande pour chaque arme : "Garder l'ancienne" ou "Prendre la nouvelle".
+   Quand tu retires le pack, l'autre pack recupere ses armes.
    Onglet "Mods" : meme chose pour les mods seuls (routes, tracers, effets de
    feu...). Ajoute tes .rpf / archives, selectionne un mod -> "Installer" :
    ses .rpf vont dans FiveM.app\mods. Il s'installe a cote des packs.

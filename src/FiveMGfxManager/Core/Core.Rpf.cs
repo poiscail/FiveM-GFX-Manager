@@ -97,14 +97,33 @@ namespace FiveMGfxManager
         public static byte[] ReadRpfFile(string file, string path)
         {
             var e = ReadRpfEntries(file)?.FirstOrDefault(x => !x.Dossier && x.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
-            if (e == null) return null;
+            return e == null ? null : ReadRpfData(file, e);
+        }
+
+        static byte[] ReadRpfData(string file, RpfEntry e)
+        {
             using (var fs = File.OpenRead(file))
             {
                 fs.Position = e.Position;
                 if (e.Ressource || e.Taille == 0)
                 {
-                    var data = new byte[e.Ressource ? e.Taille : e.TailleReelle];
-                    fs.Read(data, 0, data.Length);
+                    long len = e.Ressource ? e.Taille : e.TailleReelle;
+                    if (e.Ressource && e.Taille == 0xFFFFFF)
+                    {
+                        // grosse ressource : taille réelle dans les octets 2, 5, 7 et 14 de l'en-tête
+                        var h = new byte[16];
+                        fs.Read(h, 0, 16);
+                        len = (uint)(h[7] | h[14] << 8 | h[5] << 16 | h[2] << 24);
+                        fs.Position = e.Position;
+                    }
+                    var data = new byte[len];
+                    int read = 0;
+                    while (read < data.Length)
+                    {
+                        int n = fs.Read(data, read, data.Length - read);
+                        if (n <= 0) break;
+                        read += n;
+                    }
                     return data;
                 }
                 var packed = new byte[e.Taille];

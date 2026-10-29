@@ -301,7 +301,7 @@ namespace FiveMGfxManager
         {
             Focus();
             int h = HitTest(e.Location);
-            if (h >= 0) { selected = h; Invalidate(); }
+            if (h >= 0) Select(h);
             base.OnMouseDown(e);
         }
 
@@ -310,10 +310,20 @@ namespace FiveMGfxManager
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Left) selected = Math.Max(0, selected - 1);
-            if (e.KeyCode == Keys.Right) selected = Math.Min(items.Length - 1, selected + 1);
-            Invalidate();
+            if (e.KeyCode == Keys.Left) Select(Math.Max(0, selected - 1));
+            if (e.KeyCode == Keys.Right) Select(Math.Min(items.Length - 1, selected + 1));
             base.OnKeyDown(e);
+        }
+
+        // choix fait par l'utilisateur (clic ou flèches)
+        public event EventHandler SelectedIndexChanged;
+
+        void Select(int i)
+        {
+            bool changed = i != selected;
+            selected = i;
+            Invalidate();
+            if (changed) SelectedIndexChanged?.Invoke(this, EventArgs.Empty);
         }
 
         protected override void OnGotFocus(EventArgs e) { Invalidate(); base.OnGotFocus(e); }

@@ -46,7 +46,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Core/Core.Graphics.cs` | Profils graphiques Performance / Équilibré / Qualité dans `%APPDATA%\CitizenFX\gta5_settings.xml` (`FIVEM_GFX_SETTINGS` pour les tests), sauvegarde `graphismes\origine.xml` |
 | `Core/Core.Presets.cs` | Presets ReShade de `plugins` (liste, preset actif, copie), mode performance, rangement des dossiers de shaders inutilisés (`shaders_ranges`) |
 | `Core/Core.Profiles.cs` | Profils complets (`profils.json` : packs + preset + mode perf + copie des graphismes), taille installée, alerte VRAM (`FIVEM_GFX_VRAM` pour les tests) |
-| `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Mods / Sauvegarde / ReShade / QuantV, liste de packs + détails, journal). Les opérations tournent en arrière-plan (`Task.Run`) |
+| `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Mods / Sauvegarde / ReShade / QuantV, liste de packs + détails, journal). Les dossiers sont des lignes de la liste (`PackRow.Folder`, ligne `Up` « Retour » ; `folderFilter` = dossier ouvert) : double-clic pour ouvrir, glisser-déposer interne (`PackDrag`) pour ranger. Les opérations tournent en arrière-plan (`Task.Run`) |
 | `UI/MainForm.Tools.cs` | Pages Graphismes / Presets ReShade / Profils (classe partielle) |
 | `UI/Theme.cs`, `UI/Widgets.cs` | Couleurs du thème sombre, contrôles dessinés à la main (boutons, segments, `DarkListView`…) |
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |

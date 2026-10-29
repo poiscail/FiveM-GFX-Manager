@@ -137,6 +137,7 @@ namespace FiveMGfxManager
     {
         public const string Packs = "";
         public const string Mods = "\uEA86";
+        public const string Back = "\uE72B";
         public const string Update = "\uE895";
         public const string Graphics = "\uE7F4";
         public const string Presets = "\uE790";

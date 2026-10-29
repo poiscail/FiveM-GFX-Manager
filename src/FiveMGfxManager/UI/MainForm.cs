@@ -11,15 +11,21 @@ namespace FiveMGfxManager
 {
     public partial class MainForm : Form
     {
-        // Ligne de la liste des packs : un pack de la bibliothèque et/ou son installation
+        // Ligne de la liste des packs : un pack de la bibliothèque et/ou son installation,
+        // un dossier (Folder) ou la ligne « Retour » (Up) quand on est dans un dossier
         class PackRow
         {
             public LibraryPack Lib;
             public PackInfo Inst;
-            public string Key => Lib?.Id ?? "inst:" + Inst.Id;
-            public string Nom => Lib?.Nom ?? Inst.Nom;
-            public string Type => Lib?.Type ?? Inst.Type ?? "Graphique";
+            public string Folder;
+            public bool Up;
+            public bool IsPack => Folder == null && !Up;
+            public string Key => Up ? "up" : Folder != null ? "dir:" + Folder : Lib?.Id ?? "inst:" + Inst.Id;
+            public string Nom => Up ? "Retour" : Folder ?? Lib?.Nom ?? Inst.Nom;
+            public string Type => Lib?.Type ?? Inst?.Type ?? "Graphique";
         }
+
+        const string PackDrag = "FiveMGfxManager.Packs";
 
         class Page
         {
@@ -59,7 +65,8 @@ namespace FiveMGfxManager
                        detailSource = new Label(), detailMods = new Label(), detailFolder = new Label(),
                        detailWeapons = new Label();
         FlatButton installBtn, removeBtn, addModsBtn, typeBtn, deleteBtn, folderBtn;
-        string folderFilter; // null : tous les packs, "" : sans dossier, sinon le dossier affiché
+        string folderFilter; // dossier ouvert dans la liste (null : liste principale)
+        int dropIndex = -1;  // dossier survolé pendant un glisser-déposer
 
         // État des pages Sauvegarde et ReShade
         StatusCard backupCard, reshadeCard, quantvCard;
@@ -322,8 +329,17 @@ namespace FiveMGfxManager
                     ? "Aucun mod pour l'instant.\n\nGlisse ici tes .rpf, .zip, .7z ou .rar,\nils iront dans FiveM.app\\mods."
                     : "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\nou clique sur « Ajouter des archives… ».";
                 packList.SelectedItems.Clear();
+                folderFilter = null;
                 RefreshPackList();
             }
+            ShowFolderTitle();
+        }
+
+        // titre « Packs › dossier » quand un dossier est ouvert
+        void ShowFolderTitle()
+        {
+            if (current != pages[0] && current != modsPage) return;
+            pageTitle.Text = folderFilter == null ? current.Title : $"{current.Title}  ›  {folderFilter}";
         }
 
         // ---------------------------------------------------- petits outils --
@@ -396,9 +412,10 @@ namespace FiveMGfxManager
             bar.Controls.Add(typeBox, 1, 0);
             bar.Controls.Add(Btn("Ajouter des archives…", ImportArchives, ButtonKind.Primary, Glyph.Add), 2, 0);
             bar.Controls.Add(Btn("Ajouter un dossier…", ImportFolder, ButtonKind.Secondary, Glyph.Folder), 3, 0);
-            folderBtn = Btn("Dossier : tous ▾", ShowFolderMenu, ButtonKind.Ghost, Glyph.Folder);
+            folderBtn = Btn("Nouveau dossier…", () => { if (folderFilter != null) OpenFolder(null); else AskNewFolder(); },
+                            ButtonKind.Ghost, Glyph.Folder);
             folderBtn.Margin = new Padding(14, 0, 0, 0);
-            tips.SetToolTip(folderBtn, "Ranger les packs dans des dossiers et choisir le dossier affiché");
+            tips.SetToolTip(folderBtn, "Double-clic sur un dossier pour l'ouvrir, glisse les packs dessus pour les ranger");
             bar.Controls.Add(folderBtn, 4, 0);
             bar.Margin = new Padding(0, 0, 0, 14);
             tips.SetToolTip(typeBox, "Type donné aux packs que tu ajoutes (modifiable ensuite)");
@@ -441,15 +458,42 @@ namespace FiveMGfxManager
             packList.DrawSubItem += (s, e) => DrawPackCell(e, nameFont, smallFont);
             packList.Resize += (s, e) => FitColumns();
             packList.SelectedIndexChanged += (s, e) => ShowDetails();
-            packList.DoubleClick += (s, e) => { if (!busy) InstallSelected(); };
+            // double-clic : ouvre un dossier, remonte avec « Retour », installe un pack
+            packList.MouseDoubleClick += (s, e) =>
+            {
+                var r = packList.GetItemAt(e.X, e.Y)?.Tag as PackRow;
+                if (r == null) return;
+                if (r.Up) OpenFolder(null);
+                else if (r.Folder != null) OpenFolder(r.Folder);
+                else if (!busy) InstallSelected();
+            };
             // Suppr : retire de FiveM les packs sélectionnés (ou les supprime de la bibliothèque s'ils ne sont pas installés)
             packList.KeyDown += (s, e) =>
             {
+                var entry = SelectedEntry();
+                if (e.KeyCode == Keys.Back && folderFilter != null) { OpenFolder(null); return; }
+                if (e.KeyCode == Keys.Enter && entry != null && !entry.IsPack)
+                {
+                    OpenFolder(entry.Up ? null : entry.Folder);
+                    return;
+                }
                 if (busy) return;
+                if (entry?.Folder != null)
+                {
+                    if (e.KeyCode == Keys.F2) AskRenameFolder(entry.Folder);
+                    else if (e.KeyCode == Keys.Delete) AskDeleteFolder(entry.Folder);
+                    return;
+                }
                 if (e.KeyCode == Keys.F2) { RenameSelected(); return; }
-                if (e.KeyCode != Keys.Delete) return;
+                if (e.KeyCode != Keys.Delete || SelectedRows().Count == 0) return;
                 if (SelectedRows().Any(r => r.Inst != null)) UninstallSelected();
                 else DeleteSelected();
+            };
+            // glisser des packs sur un dossier (ou sur « Retour ») pour les y ranger
+            packList.ItemDrag += (s, e) =>
+            {
+                var ids = SelectedRows().Where(r => r.Lib != null).Select(r => r.Lib.Id).ToArray();
+                if (ids.Length > 0 && !busy) packList.DoDragDrop(new DataObject(PackDrag, ids), DragDropEffects.Move);
             };
             packList.ContextMenuStrip = BuildPackMenu();
 
@@ -461,14 +505,35 @@ namespace FiveMGfxManager
             emptyList.Text = "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\n" +
                              "ou clique sur « Ajouter des archives… ».";
 
-            // glisser-déposer des archives / dossiers sur la liste
-            foreach (var c in new Control[] { packList, emptyList })
+            // glisser-déposer des archives / dossiers sur la liste (sur un dossier : importées dedans)
+            emptyList.AllowDrop = packList.AllowDrop = true;
+            emptyList.DragEnter += (s, e) =>
+                e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) && !busy ? DragDropEffects.Copy : DragDropEffects.None;
+            emptyList.DragDrop += (s, e) => Import((string[])e.Data.GetData(DataFormats.FileDrop));
+            DragEventHandler over = (s, e) =>
             {
-                c.AllowDrop = true;
-                c.DragEnter += (s, e) =>
-                    e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) && !busy ? DragDropEffects.Copy : DragDropEffects.None;
-                c.DragDrop += (s, e) => Import((string[])e.Data.GetData(DataFormats.FileDrop));
-            }
+                var target = DropTarget(e);
+                SetDropIndex(target?.Index ?? -1);
+                e.Effect = busy ? DragDropEffects.None
+                         : e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy
+                         : e.Data.GetDataPresent(PackDrag) && target != null ? DragDropEffects.Move
+                         : DragDropEffects.None;
+            };
+            packList.DragEnter += over;
+            packList.DragOver += over;
+            packList.DragLeave += (s, e) => SetDropIndex(-1);
+            packList.DragDrop += (s, e) =>
+            {
+                var target = (PackRow)DropTarget(e)?.Tag;
+                SetDropIndex(-1);
+                if (busy) return;
+                string dest = target == null ? folderFilter : target.Up ? null : target.Folder;
+                if (e.Data.GetDataPresent(PackDrag))
+                {
+                    if (target != null) Try(() => Core.MoveToFolder((string[])e.Data.GetData(PackDrag), dest));
+                }
+                else Import((string[])e.Data.GetData(DataFormats.FileDrop), dest);
+            };
             listCard.Controls.Add(packList);
             listCard.Controls.Add(emptyList);
             page.Controls.Add(listCard, 0, 1);
@@ -487,15 +552,33 @@ namespace FiveMGfxManager
             var folder = new ToolStripMenuItem("Ranger dans un dossier");
             folder.DropDown = new ToolStripDropDownMenu { Renderer = new DarkMenuRenderer(), Font = menu.Font, ShowImageMargin = false };
             var delete = new ToolStripMenuItem("Supprimer de la bibliothèque", null, (s, e) => DeleteSelected()) { Tag = "danger" };
+            // clic droit sur un dossier, ou dans le vide
+            string dir = null;
+            var openDir = new ToolStripMenuItem("Ouvrir", null, (s, e) => OpenFolder(dir));
+            var renameDir = new ToolStripMenuItem("Renommer le dossier…", null, (s, e) => AskRenameFolder(dir)) { ShortcutKeyDisplayString = "F2" };
+            var deleteDir = new ToolStripMenuItem("Supprimer le dossier", null, (s, e) => AskDeleteFolder(dir)) { Tag = "danger" };
+            var newDir = new ToolStripMenuItem("Nouveau dossier…", null, (s, e) => AskNewFolder());
             menu.Items.AddRange(new ToolStripItem[]
             {
                 install, remove, new ToolStripSeparator(), mods, type, rename, folder, new ToolStripSeparator(), delete,
+                openDir, renameDir, deleteDir, newDir,
             });
             foreach (ToolStripItem i in menu.Items) { i.ForeColor = Theme.Fg; i.Padding = new Padding(4, 3, 4, 3); }
             menu.Opening += (s, e) =>
             {
+                foreach (ToolStripItem i in menu.Items) i.Visible = false;
+                var pt = packList.PointToClient(Cursor.Position);
+                var hit = packList.GetItemAt(pt.X, pt.Y)?.Tag as PackRow;
+                if (busy || hit?.Up == true) { e.Cancel = true; return; }
+                if (hit == null) { newDir.Visible = true; return; }
+                if (hit.Folder != null)
+                {
+                    dir = hit.Folder;
+                    openDir.Visible = renameDir.Visible = deleteDir.Visible = true;
+                    return;
+                }
                 var rows = SelectedRows();
-                if (busy || rows.Count == 0) { e.Cancel = true; return; }
+                if (rows.Count == 0) { e.Cancel = true; return; }
                 int inst = rows.Count(r => r.Inst != null), del = rows.Count(r => r.Lib != null && r.Inst == null);
                 bool one = rows.Count == 1;
                 install.Visible = one && rows[0].Inst == null;
@@ -521,7 +604,8 @@ namespace FiveMGfxManager
             var bounds = e.Bounds;
             if (e.ColumnIndex == 0) bounds.Width = packList.Columns[0].Width;
             bool sel = e.Item.Selected;
-            var back = sel ? Theme.Mix(Theme.Card, Theme.Accent, 0.12f) : Theme.Card;
+            var back = e.ItemIndex == dropIndex ? Theme.Mix(Theme.Card, Theme.Accent, 0.3f)
+                     : sel ? Theme.Mix(Theme.Card, Theme.Accent, 0.12f) : Theme.Card;
             using (var b = new SolidBrush(back)) g.FillRectangle(b, bounds);
             using (var p = new Pen(Theme.Mix(Theme.Card, Theme.Border, 0.7f)))
                 g.DrawLine(p, bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1);
@@ -529,6 +613,25 @@ namespace FiveMGfxManager
             var cell = Rectangle.FromLTRB(bounds.Left + (int)(12 * k), bounds.Top, bounds.Right - (int)(6 * k), bounds.Bottom - 1);
             const TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding |
                                           TextFormatFlags.NoPrefix | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine;
+            if (!r.IsPack)
+            {
+                // dossier / Retour : icône + nom, nombre de packs en dernière colonne
+                if (e.ColumnIndex == 0)
+                {
+                    if (sel) Theme.FillRound(g, new Rectangle(bounds.Left, bounds.Top + (int)(8 * k), (int)(3 * k),
+                                                              bounds.Height - (int)(17 * k)), (int)(2 * k), Theme.Accent);
+                    using (var icons = Theme.Icons(13F))
+                        if (icons != null)
+                        {
+                            TextRenderer.DrawText(g, r.Up ? Glyph.Back : Glyph.Folder, icons, cell, r.Up ? Theme.Muted : Theme.Accent, flags);
+                            cell.X += (int)(28 * k);
+                            cell.Width -= (int)(28 * k);
+                        }
+                    TextRenderer.DrawText(g, e.SubItem.Text, nameFont, cell, r.Up ? Theme.Muted : Theme.Fg, flags);
+                }
+                else TextRenderer.DrawText(g, e.SubItem.Text, smallFont, cell, Theme.Muted, flags);
+                return;
+            }
             switch (e.ColumnIndex)
             {
                 case 0:
@@ -714,30 +817,46 @@ namespace FiveMGfxManager
                                    .Select(i => new PackRow { Inst = i }));
             var all = rows;
             var folders = Core.LibraryFolders();
-            if (!string.IsNullOrEmpty(folderFilter) && !folders.Contains(folderFilter, StringComparer.OrdinalIgnoreCase))
+            if (folderFilter != null && !folders.Contains(folderFilter, StringComparer.OrdinalIgnoreCase))
                 folderFilter = null; // dossier supprimé ou renommé ailleurs
-            rows = all.Where(r => (r.Type == Core.ModType) == ModsView)
-                      .Where(r => folderFilter == null ||
-                                  string.Equals(r.Lib?.Dossier ?? "", folderFilter, StringComparison.OrdinalIgnoreCase))
-                      .ToList();
-            folderBtn.Text = folderFilter == null ? "Dossier : tous ▾" : folderFilter == "" ? "Dossier : sans dossier ▾"
-                           : $"Dossier : {folderFilter} ▾";
+            bool In(PackRow r, string d) => string.Equals(r.Lib?.Dossier ?? "", d ?? "", StringComparison.OrdinalIgnoreCase);
+            var view = all.Where(r => (r.Type == Core.ModType) == ModsView).ToList();
+            rows = view.Where(r => In(r, folderFilter)).ToList();
+            // dossiers en tête de la liste ; dans un dossier, une ligne « Retour »
+            var entries = new List<PackRow>();
+            if (folderFilter != null) entries.Add(new PackRow { Up = true });
+            else
+                foreach (var d in folders)
+                {
+                    // un dossier qui ne contient que des mods n'apparaît pas dans les packs (et inversement)
+                    if (!view.Any(r => In(r, d)) && all.Any(r => In(r, d))) continue;
+                    entries.Add(new PackRow { Folder = d });
+                }
+            entries.AddRange(rows);
+            folderBtn.Text = folderFilter == null ? "Nouveau dossier…" : "Retour";
+            folderBtn.Glyph = folderFilter == null ? Glyph.Folder : Glyph.Back;
+            folderBtn.Invalidate();
+            ShowFolderTitle();
 
             packList.BeginUpdate();
             packList.Items.Clear();
-            foreach (var r in rows)
+            foreach (var r in entries)
             {
-                var item = new ListViewItem(new[]
-                {
-                    r.Nom,
-                    r.Type,
-                    r.Lib != null ? Core.HumanSize(r.Lib.Taille) : "",
-                    r.Lib?.Mods != null && r.Lib.Mods.Count > 0 ? r.Lib.Mods.Count.ToString() : "",
-                    r.Inst == null ? "Bibliothèque" : r.Lib == null ? "Installé (hors bibl.)" : "Installé",
-                })
+                int n = r.Folder != null ? view.Count(x => In(x, r.Folder)) : 0;
+                var item = new ListViewItem(!r.IsPack
+                    ? new[] { r.Nom, "", "", "", r.Up ? "" : n == 0 ? "vide" : $"{n} {Noun}{(n > 1 ? "s" : "")}" }
+                    : new[]
+                    {
+                        r.Nom,
+                        r.Type,
+                        r.Lib != null ? Core.HumanSize(r.Lib.Taille) : "",
+                        r.Lib?.Mods != null && r.Lib.Mods.Count > 0 ? r.Lib.Mods.Count.ToString() : "",
+                        r.Inst == null ? "Bibliothèque" : r.Lib == null ? "Installé (hors bibl.)" : "Installé",
+                    })
                 { Tag = r };
                 var tip = new List<string>();
-                if (!string.IsNullOrEmpty(r.Lib?.Dossier)) tip.Add("Dossier : " + r.Lib.Dossier);
+                if (r.Up) tip.Add("Double-clic (ou Retour arrière) pour revenir à la liste");
+                if (r.Folder != null) tip.Add("Double-clic pour ouvrir · glisse des " + Noun + "s dessus pour les ranger");
                 if (r.Lib?.Mods != null && r.Lib.Mods.Count > 0) tip.Add("Mods ajoutés : " + string.Join(", ", r.Lib.Mods));
                 if (r.Lib?.Armes != null && r.Lib.Armes.Count > 0) tip.Add("Armes : " + string.Join(", ", Core.WeaponNames(r.Lib.Armes)));
                 item.ToolTipText = string.Join("\n", tip);
@@ -746,12 +865,7 @@ namespace FiveMGfxManager
             }
             packList.EndUpdate();
             FitColumns();
-            emptyList.Visible = rows.Count == 0;
-            emptyList.Text = folderFilter != null && all.Any(r => (r.Type == Core.ModType) == ModsView)
-                ? "Aucun " + Noun + " dans ce dossier.\n\nClic droit sur un " + Noun + " › « Ranger dans un dossier »,\n" +
-                  "ou choisis un autre dossier en haut."
-                : "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\n" +
-                  "ou clique sur « Ajouter des archives… ».";
+            emptyList.Visible = entries.Count == 0;
             if (emptyList.Visible) emptyList.BringToFront();
             ShowDetails();
 
@@ -772,9 +886,13 @@ namespace FiveMGfxManager
             pageSubtitle.Text = current?.Subtitle;
         }
 
-        PackRow SelectedRow() => packList.SelectedItems.Count > 0 ? (PackRow)packList.SelectedItems[0].Tag : null;
+        PackRow SelectedRow() => SelectedRows().FirstOrDefault();
 
-        List<PackRow> SelectedRows() => packList.SelectedItems.Cast<ListViewItem>().Select(i => (PackRow)i.Tag).ToList();
+        // packs sélectionnés (sans les dossiers ni la ligne « Retour »)
+        List<PackRow> SelectedRows() => packList.SelectedItems.Cast<ListViewItem>().Select(i => (PackRow)i.Tag).Where(r => r.IsPack).ToList();
+
+        // ligne sélectionnée, dossier compris
+        PackRow SelectedEntry() => packList.SelectedItems.Count == 1 ? (PackRow)packList.SelectedItems[0].Tag : null;
 
         PackRow RequireSelection()
         {
@@ -1171,11 +1289,13 @@ namespace FiveMGfxManager
             if (d != null) Import(new[] { d });
         }
 
-        void Import(string[] sources)
+        // rangé dans le dossier ouvert
+        void Import(string[] sources) => Import(sources, folderFilter);
+
+        void Import(string[] sources, string folder)
         {
             if (sources == null || sources.Length == 0 || busy) return;
             string type = ModsView ? Core.ModType : (string)typeBox.SelectedItem;
-            string folder = string.IsNullOrEmpty(folderFilter) ? null : folderFilter; // rangé dans le dossier affiché
             RunTask((log, p) =>
             {
                 // un fichier refusé n'empêche pas d'importer les suivants
@@ -1404,46 +1524,60 @@ namespace FiveMGfxManager
                 items.Add(MenuItem("Sortir du dossier", () => Try(() => Core.MoveToFolder(ids, null))));
         }
 
-        // Bouton « Dossier » : dossier affiché et gestion des dossiers
-        void ShowFolderMenu()
+        // Ouvre un dossier dans la liste (null : revient à la liste principale)
+        void OpenFolder(string folder)
         {
-            var menu = new ContextMenuStrip { Renderer = new DarkMenuRenderer(), Font = Theme.Ui(9.5F), ShowImageMargin = false };
-            void Show(string f) { folderFilter = f; RefreshPackList(); }
-            menu.Items.Add(MenuItem("Tous les " + Noun + "s", () => Show(null), folderFilter == null));
-            menu.Items.Add(MenuItem("Sans dossier", () => Show(""), folderFilter == ""));
-            var folders = Core.LibraryFolders();
-            if (folders.Count > 0) menu.Items.Add(new ToolStripSeparator());
-            foreach (var d in folders)
+            string from = folderFilter;
+            folderFilter = folder;
+            packList.SelectedItems.Clear();
+            RefreshPackList();
+            // en remontant, le dossier qu'on vient de quitter reste sélectionné
+            var back = packList.Items.Cast<ListViewItem>().FirstOrDefault(i => folder == null && ((PackRow)i.Tag).Folder == from);
+            if (back != null) { back.Selected = back.Focused = true; back.EnsureVisible(); }
+            packList.Focus();
+        }
+
+        void AskNewFolder()
+        {
+            string name = AskText("Nouveau dossier", "Nom du dossier :", "");
+            if (name != null) Try(() => Core.CreateFolder(name));
+        }
+
+        void AskRenameFolder(string cur)
+        {
+            string name = AskText("Renommer le dossier", "Nouveau nom :", cur);
+            if (name == null || name == cur) return;
+            Try(() =>
             {
-                string folder = d;
-                int n = Core.ListLibrary().Count(p => string.Equals(p.Dossier, d, StringComparison.OrdinalIgnoreCase));
-                menu.Items.Add(MenuItem($"{d}  ({n})", () => Show(folder), string.Equals(d, folderFilter, StringComparison.OrdinalIgnoreCase)));
-            }
-            menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(MenuItem("Nouveau dossier…", () =>
+                Core.RenameFolder(cur, name);
+                if (string.Equals(folderFilter, cur, StringComparison.OrdinalIgnoreCase)) folderFilter = name;
+            });
+        }
+
+        void AskDeleteFolder(string cur)
+        {
+            if (!Ask("Supprimer le dossier", $"Supprimer le dossier « {cur} » ?\n(ses " + Noun + "s restent dans la bibliothèque, hors dossier)"))
+                return;
+            Try(() =>
             {
-                string name = AskText("Nouveau dossier", "Nom du dossier :", "");
-                if (name == null) return;
-                Try(() => Core.CreateFolder(name));
-                if (Core.LibraryFolders().Contains(name, StringComparer.OrdinalIgnoreCase)) Show(name);
-            }));
-            if (!string.IsNullOrEmpty(folderFilter))
-            {
-                string cur = folderFilter;
-                menu.Items.Add(MenuItem($"Renommer « {cur} »…", () =>
-                {
-                    string name = AskText("Renommer le dossier", "Nouveau nom :", cur);
-                    if (name == null || name == cur) return;
-                    Try(() => { Core.RenameFolder(cur, name); folderFilter = name; });
-                }));
-                menu.Items.Add(MenuItem($"Supprimer « {cur} »", () =>
-                {
-                    if (Ask("Supprimer le dossier", $"Supprimer le dossier « {cur} » ?\n(ses packs restent dans la bibliothèque, sans dossier)"))
-                        Try(() => { Core.DeleteFolder(cur); folderFilter = null; });
-                }, tag: "danger"));
-            }
-            menu.Closed += (s, e) => BeginInvoke(new Action(menu.Dispose));
-            menu.Show(folderBtn, new Point(0, folderBtn.Height));
+                Core.DeleteFolder(cur);
+                if (string.Equals(folderFilter, cur, StringComparison.OrdinalIgnoreCase)) folderFilter = null;
+            });
+        }
+
+        // Dossier ou ligne « Retour » sous la souris pendant un glisser-déposer
+        ListViewItem DropTarget(DragEventArgs e)
+        {
+            var pt = packList.PointToClient(new Point(e.X, e.Y));
+            var item = packList.GetItemAt(pt.X, pt.Y);
+            return item != null && !((PackRow)item.Tag).IsPack ? item : null;
+        }
+
+        void SetDropIndex(int i)
+        {
+            if (i == dropIndex) return;
+            dropIndex = i;
+            packList.Invalidate();
         }
 
         // Armes déjà remplacées par un pack installé : garder l'ancienne ou prendre la nouvelle, arme par arme.

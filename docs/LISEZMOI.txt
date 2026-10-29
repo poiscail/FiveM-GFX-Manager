@@ -17,9 +17,12 @@ UTILISATION CONSEILLEE
    en meme temps (ex. un graphique + un son + des armes).
    "Ajouter des mods au pack..." ajoute d'autres fichiers a un pack de la bibliotheque.
    Clic droit -> "Renommer..." (ou F2) pour changer le nom d'un pack.
-   Bouton "Dossier" (en haut) : cree des dossiers et choisis celui qui est affiche.
-   Clic droit -> "Ranger dans un dossier" pour y mettre des packs. Les packs ajoutes
-   vont directement dans le dossier affiche.
+   Dossiers : "Nouveau dossier..." (en haut, ou clic droit dans le vide de la liste).
+   Les dossiers s'affichent en tete de la liste des packs : double-clic pour en ouvrir
+   un, "Retour" (ou la touche Retour arriere) pour revenir. Glisse un ou plusieurs packs
+   sur un dossier pour les y ranger, ou sur "Retour" pour les sortir du dossier.
+   Des archives glissees sur un dossier y sont ajoutees directement. Clic droit sur un
+   dossier : renommer (F2) / supprimer (Suppr, ses packs restent dans la bibliotheque).
    Armes : le logiciel retient quelles armes chaque pack remplace. Si tu installes un
    pack d'armes alors qu'une de ses armes est deja remplacee par un autre pack installe,
    il te demande pour chaque arme : "Garder l'ancienne" ou "Prendre la nouvelle".

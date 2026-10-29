@@ -7,8 +7,10 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - choisir quel pack **installer** dans `FiveM.app` : packs **graphiques**, packs **son**
   et **remplacements d'armes** (plusieurs packs à la fois, conflits détectés) ;
 - **ajouter des mods** à un pack existant, changer son type, le **renommer** (F2), le supprimer ;
-- ranger les packs dans des **dossiers** (bouton « Dossier » : dossier affiché, nouveau / renommer /
-  supprimer ; clic droit › « Ranger dans un dossier ») ; les packs ajoutés vont dans le dossier affiché ;
+- ranger les packs dans des **dossiers** affichés en tête de la liste : double-clic pour ouvrir,
+  « Retour » pour revenir, **glisser-déposer** des packs sur un dossier pour les y ranger (ou sur
+  « Retour » pour les en sortir), archives glissées sur un dossier importées dedans ; clic droit sur un
+  dossier pour le renommer (F2) ou le supprimer ;
 - **armes suivies** : le logiciel retient quelles armes chaque pack remplace ; si une arme est déjà
   remplacée par un pack installé, il demande pour chacune de **garder l'ancienne ou prendre la
   nouvelle** (le paquet de l'autre pack est refait sans elle, et elle lui revient quand on retire le pack) ;

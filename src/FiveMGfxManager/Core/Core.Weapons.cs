@@ -55,13 +55,7 @@ namespace FiveMGfxManager
                 string n = Path.GetFileName(e.Path).ToLowerInvariant();
                 if (IsStreamFile(n)) names.Add(n);
                 else if (n.EndsWith(".rpf"))
-                    WithTempDir(work =>
-                    {
-                        string inner = Path.Combine(work, n);
-                        File.WriteAllBytes(inner, ReadRpfData(rpf, e));
-                        names.AddRange((RpfRootFiles(inner) ?? new List<string>()).Where(IsStreamFile).Select(x => x.ToLowerInvariant()));
-                        return 0;
-                    });
+                    names.AddRange((NestedRpfRootFiles(rpf, e) ?? new List<string>()).Where(IsStreamFile).Select(x => x.ToLowerInvariant()));
             }
             return names;
         }
@@ -236,14 +230,14 @@ namespace FiveMGfxManager
                 {
                     if (drop.Contains(n)) continue;
                     string f = Path.Combine(dir, n);
-                    File.WriteAllBytes(f, ReadRpfData(src, e));
+                    ExtractRpfFile(src, e, f);
                     streamed.Add(f);
                     kept++;
                 }
                 else if (n.EndsWith(".rpf"))
                 {
                     string inner = Path.Combine(work, "orig_" + n);
-                    File.WriteAllBytes(inner, ReadRpfData(src, e));
+                    ExtractRpfFile(src, e, inner);
                     var ie = ReadRpfEntries(inner);
                     if (ie == null) return -1;
                     var keep = ie.Where(x => !x.Dossier && !(!x.Path.Contains("/") && drop.Contains(x.Path.ToLowerInvariant()))).ToList();

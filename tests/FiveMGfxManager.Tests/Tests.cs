@@ -111,6 +111,9 @@ class T {
       var ma=Core.ImportPack(S+"/rpfarme/mesarmes.rpf","Armes",log,pr);
       string mp=S+"/appdata/bibliotheque/"+ma.Id+"/contenu/mods/mesarmes.rpf";
       Check(Core.ReadRpfFile(mp,"content/mesarmes.rpf")?.SequenceEqual(r)==true && System.Text.Encoding.UTF8.GetString(Core.ReadRpfFile(mp,"assembly.xml")).Contains("models\\cdimages\\mesarmes.rpf</add>"), "rpf sans assembly.xml mis dans un paquet");
+      var ne=Core.ReadRpfEntries(mp).Single(x=>x.Path=="content/mesarmes.rpf"); var inl=Core.ReadRpfEntries(mp,ne.Position);
+      Check(inl?.Single().Path=="a.ydr" && System.Text.Encoding.ASCII.GetString(Core.ReadRpfFile(mp,"content/mesarmes.rpf").Skip(512).Take(3).ToArray())=="YDR"
+            && inl.Single().Position==ne.Position+512, "rpf dans un rpf lu sur place (sans tout charger en memoire)");
       Core.DeleteFromLibrary(ma.Id,log); }
     // pack de plusieurs armes : une archive par arme dans l'archive, fichier commun en double
     { string mk=S+"/multi"; foreach (var (arme,f) in new[]{("Pistolet","w_pi_pistol.ydr"),("Carabine","w_ar_carbinerifle.ytd")}) {

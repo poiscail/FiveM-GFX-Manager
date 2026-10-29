@@ -36,17 +36,21 @@ namespace FiveMGfxManager
 
         // ------------------------------------------------------- lecture --
 
-        // Entrées d'un .rpf ; null si ce n'est pas un RPF7 lisible (chiffré NG / AES, ou autre fichier)
-        public static List<RpfEntry> ReadRpfEntries(string file)
+        // Entrées d'un .rpf ; null si ce n'est pas un RPF7 lisible (chiffré NG / AES, ou autre fichier).
+        // offset : début d'un .rpf rangé tel quel dans file (les positions renvoyées sont relatives à file)
+        public static List<RpfEntry> ReadRpfEntries(string file, long offset = 0)
         {
             try
             {
                 using (var br = new BinaryReader(File.OpenRead(file)))
                 {
-                    if (br.BaseStream.Length < 16 || br.ReadUInt32() != RpfMagic) return null;
+                    long length = br.BaseStream.Length - offset;
+                    if (length < 16) return null;
+                    br.BaseStream.Position = offset;
+                    if (br.ReadUInt32() != RpfMagic) return null;
                     uint count = br.ReadUInt32(), namesLength = br.ReadUInt32(), enc = br.ReadUInt32();
                     if (enc != RpfOpen && enc != 0) return null;
-                    if (count == 0 || 16 + 16L * count + namesLength > br.BaseStream.Length) return null;
+                    if (count == 0 || 16 + 16L * count + namesLength > length) return null;
                     var raw = new List<byte[]>();
                     for (int i = 0; i < count; i++) raw.Add(br.ReadBytes(16));
                     byte[] names = br.ReadBytes((int)namesLength);
@@ -82,7 +86,7 @@ namespace FiveMGfxManager
                         {
                             Path = path, Ressource = res,
                             Taille = (uint)((v >> 16) & 0xFFFFFF),
-                            Position = (long)((v >> 40) & (res ? 0x7FFFFFUL : 0xFFFFFFUL)) * 512,
+                            Position = offset + (long)((v >> 40) & (res ? 0x7FFFFFUL : 0xFFFFFFUL)) * 512,
                             TailleReelle = res ? 0 : BitConverter.ToUInt32(b, 8),
                         };
                     }
@@ -116,6 +120,8 @@ namespace FiveMGfxManager
                         len = (uint)(h[7] | h[14] << 8 | h[5] << 16 | h[2] << 24);
                         fs.Position = e.Position;
                     }
+                    if (len > int.MaxValue - 64)
+                        throw new GfxException($"{Path.GetFileName(e.Path)} est trop gros pour être lu en mémoire ({len / (1024 * 1024)} Mo).");
                     var data = new byte[len];
                     int read = 0;
                     while (read < data.Length)
@@ -137,6 +143,42 @@ namespace FiveMGfxManager
             }
         }
 
+        // Copie un fichier de l'archive sur le disque, sans tout charger en mémoire s'il n'est pas compressé
+        static void ExtractRpfFile(string file, RpfEntry e, string dest)
+        {
+            if (e.Ressource || e.Taille != 0)
+            {
+                File.WriteAllBytes(dest, ReadRpfData(file, e));
+                return;
+            }
+            using (var fs = File.OpenRead(file))
+            using (var outs = File.Create(dest))
+            {
+                fs.Position = e.Position;
+                var buf = new byte[256 * 1024];
+                long left = e.TailleReelle;
+                while (left > 0)
+                {
+                    int n = fs.Read(buf, 0, (int)Math.Min(buf.Length, left));
+                    if (n <= 0) break;
+                    outs.Write(buf, 0, n);
+                    left -= n;
+                }
+            }
+        }
+
+        // Noms des fichiers à la racine d'un .rpf rangé dans une archive (null si illisible)
+        static List<string> NestedRpfRootFiles(string file, RpfEntry e)
+        {
+            if (!e.Ressource && e.Taille == 0) return RpfRootFiles(file, e.Position);  // rangé tel quel : lu sur place
+            return WithTempDir(work =>
+            {
+                string inner = Path.Combine(work, "inner.rpf");
+                ExtractRpfFile(file, e, inner);
+                return RpfRootFiles(inner);
+            });
+        }
+
         // RPF7 chiffré (NG ou AES) : illisible ici
         static bool IsEncryptedRpf(string file)
         {
@@ -154,8 +196,8 @@ namespace FiveMGfxManager
         }
 
         // Noms des fichiers à la racine de l'archive (null si illisible)
-        static List<string> RpfRootFiles(string file) =>
-            ReadRpfEntries(file)?.Where(e => !e.Dossier && !e.Path.Contains("/")).Select(e => e.Path).ToList();
+        static List<string> RpfRootFiles(string file, long offset = 0) =>
+            ReadRpfEntries(file, offset)?.Where(e => !e.Dossier && !e.Path.Contains("/")).Select(e => e.Path).ToList();
 
         // ------------------------------------------------------ écriture --
 

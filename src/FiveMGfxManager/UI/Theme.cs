@@ -162,5 +162,7 @@ namespace FiveMGfxManager
         public const string History = "";
         public const string Activity = "";
         public const string Info = "";
+        public const string Sound = "";
+        public const string Mute = "";
     }
 }

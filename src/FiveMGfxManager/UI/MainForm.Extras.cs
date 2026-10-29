@@ -17,7 +17,7 @@ namespace FiveMGfxManager
         readonly InputBox searchInput = new InputBox();
         int sortColumn = -1;
         bool sortDesc;
-        FlatButton updateBtn;
+        FlatButton updateBtn, soundsBtn;
         UpdateInfo update;
 
         const int NoteColumn = 4;
@@ -277,6 +277,45 @@ namespace FiveMGfxManager
             string fivem = FivemPath();
             if (fivem == null) return;
             RunTask((log, p) => Core.LaunchFivem(fivem, log));
+        }
+
+        // ------------------------------------------------- serveurs « pure » --
+
+        void UpdateSoundsBtn()
+        {
+            if (soundsBtn == null) return;
+            var cut = Core.CutSoundPacks();
+            soundsBtn.Text = cut.Count > 0 ? "Remettre les sons" : "Couper les sons";
+            soundsBtn.Glyph = cut.Count > 0 ? Glyph.Mute : Glyph.Sound;
+            soundsBtn.Selected = cut.Count > 0;  // surligné tant que les sons sont coupés
+            soundsBtn.Invalidate();
+        }
+
+        void ToggleSounds()
+        {
+            if (busy) return;
+            var cut = Core.CutSoundPacks();
+            if (cut.Count == 0 && Core.InstalledSoundPacks().Count == 0)
+            {
+                Info("Couper les sons", "Aucun pack son n'est installé : tu peux déjà rejoindre les serveurs « pure ».");
+                return;
+            }
+            string fivem = FivemPath();
+            if (fivem == null || !FivemClosed()) return;
+            if (cut.Count > 0)
+            {
+                var names = cut.Select(id => Core.GetLibraryPack(id)?.Nom).Where(n => n != null);
+                if (!Ask("Remettre les sons", "Réinstaller les packs son ?\n\n" + string.Join("\n", names.Select(n => "•  " + n)) +
+                                              "\n\nLes serveurs « pure » te refuseront de nouveau.")) return;
+                RunTask((log, p) => Core.RestoreSounds(fivem, log, p));
+                return;
+            }
+            var packs = Core.InstalledSoundPacks();
+            if (!Ask("Couper les sons", "Retirer les packs son pour rejoindre un serveur « pure » ?\n\n" +
+                                        string.Join("\n", packs.Select(x => "•  " + x.Nom)) +
+                                        "\n\nLes sons d'origine de GTA V sont remis. Clique sur « Remettre les sons » " +
+                                        "pour les réinstaller ensuite.")) return;
+            RunTask((log, p) => Core.CutSounds(fivem, log, p));
         }
 
         // Page Profils : applique le profil sélectionné puis lance FiveM

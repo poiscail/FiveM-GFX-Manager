@@ -95,6 +95,8 @@ REMARQUES
   dans FiveM.app\mods. Les originaux sont sauvegardes et remis au retrait du pack.
   Ferme FiveM avant, et relance-le apres. Une verification des fichiers Steam ou une mise
   a jour de GTA V remet les sons d'origine : il suffit alors de retirer puis reinstaller le pack.
+  Serveur "pure" (sv_pureLevel) qui refuse les sons modifies (FiveM plante au chargement) :
+  bouton "Couper les sons" a gauche (sons d'origine remis), puis "Remettre les sons" apres.
   Fichiers seuls (sans dossier citizen) ranges dans citizen\common\data :
     BloodFX (.ypt) -> effects   Kill effects (timecycle...xml) -> timecycle
     Roue des armes, position de la map (.gfx, frontend.xml...) -> ui

@@ -213,6 +213,9 @@ namespace FiveMGfxManager
             FlatButton tools = null;
             var launch = SideBtn("Lancer FiveM", Glyph.Play, LaunchFivem);
             tips.SetToolTip(launch, "Ouvre Steam s'il est fermé (et attend qu'il soit connecté), puis FiveM");
+            soundsBtn = SideBtn("Couper les sons", Glyph.Sound, ToggleSounds);
+            tips.SetToolTip(soundsBtn, "Serveurs « pure » : ils refusent les packs son (FiveM plante au chargement).\n" +
+                                       "Retire les packs son pour y jouer, puis remets-les en un clic.");
             tools = SideBtn("Outils…", Glyph.Clear, () => ShowToolsMenu(tools));
             var undo = SideBtn("Annuler la dernière action", Glyph.History, UndoLast);
             tips.SetToolTip(undo, "Ctrl+Z");
@@ -222,7 +225,7 @@ namespace FiveMGfxManager
             updateBtn.Height = 38;
             updateBtn.Margin = new Padding(0, 6, 0, 2);
             updateBtn.Visible = false;
-            foreach (var b in new[] { launch, undo, tools, updateBtn })
+            foreach (var b in new[] { launch, soundsBtn, undo, tools, updateBtn })
                 AddRow(side, b);
 
             fivemState.AutoSize = true;
@@ -1176,6 +1179,7 @@ namespace FiveMGfxManager
         {
             RefreshPackList();
             UpdateFivemState();
+            UpdateSoundsBtn();
             var info = Core.OriginalBackupInfo();
             if (info != null)
                 backupCard.Set(Glyph.Check, Theme.Ok, "Sauvegarde d'origine prête",

@@ -80,6 +80,7 @@ namespace FiveMGfxManager
         [DataMember] public PackInfo PackInstalle; // ancien format (un seul pack), converti au chargement
         [DataMember] public List<PackInfo> PacksInstalles = new List<PackInfo>();
         [DataMember] public ReshadeState Reshade;
+        [DataMember] public List<string> SonsCoupes; // packs son retirés pour un serveur « pure » (à remettre)
     }
 
     [DataContract]

@@ -202,6 +202,12 @@ class T {
     foreach (var p in Core.InstalledPacks().ToList()) Core.UninstallPack(p.Id,app,log,pr);
     Check(R(app+"/citizen/common/data/timecycle.xml")=="ORIG" && !Directory.Exists(app+"/mods") && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="GTA" && R(S+"/gta/x64/audio/sfx/WEAPONS_PLAYER.rpf")=="GTA", "tout retire : FiveM et GTA V propres");
     Core.DeleteFromLibrary(arm.Id,log); Check(Core.ListLibrary().Count==2, "suppression de la bibliotheque");
+    // serveur « pure » : couper puis remettre les sons
+    try { Core.CutSounds(app,log,pr); Check(false,"cut0"); } catch(GfxException){ Check(true,"couper les sons refuse sans pack son"); }
+    Core.SetPackType(son.Id,"Son"); Core.InstallLibraryPack(son.Id,app,log,pr);
+    Check(Core.CutSounds(app,log,pr)==1 && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="GTA" && !Core.IsInstalled(son.Id) && Core.CutSoundPacks().SequenceEqual(new[]{son.Id}), "couper les sons : sons d'origine de GTA V remis, pack retenu");
+    Check(Core.RestoreSounds(app,log,pr)==1 && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON" && Core.IsInstalled(son.Id) && Core.CutSoundPacks().Count==0, "remettre les sons : pack son reinstalle");
+    Core.UninstallPack(Core.InstalledPacks().Single(p=>p.LibId==son.Id).Id,app,log,pr);
     // sons d'armes deja presents ailleurs avant d'installer un pack son
     W(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf","VIEUX");
     W(app+"/mods/x64/audio/sfx/RESIDENT.rpf","ANCIEN"); // copie laissee par une ancienne version (FiveM ne la lit pas)

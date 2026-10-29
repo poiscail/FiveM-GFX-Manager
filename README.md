@@ -20,6 +20,7 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - les sons du jeu d'un pack (`x64\audio\...`) sont copiés **directement dans `GTA V\x64\audio\sfx`**
   (FiveM ne les lit pas dans `FiveM.app\mods`, comme l'indiquent les tutos des packs son) ; les
   originaux sont sauvegardés et remis au retrait du pack ou par « Restaurer FiveM d'origine » ;
+- bouton **« Couper les sons »** (barre de gauche) pour les serveurs « pure » (`sv_pureLevel`), qui refusent les fichiers du jeu modifiés et font planter FiveM au chargement : les packs son sont retirés d'un clic (sons d'origine de GTA V remis), puis **« Remettre les sons »** les réinstalle ;
 - onglet **Mods** : une bibliothèque de mods à part (routes, tracers, effets de feu…) ; on les
   sélectionne et on les installe comme les packs, leurs `.rpf` vont dans `FiveM.app\mods` ;
 - fichiers seuls rangés dans `citizen\common\data` comme le font les guides : BloodFX (`.ypt`) →

@@ -74,6 +74,14 @@ namespace FiveMGfxManager
         static IEnumerable<string> Touched(Manifest m) =>
             (m.Ajoutes ?? new List<string>()).Concat(m.Remplaces ?? new List<string>());
 
+        // FiveM ne lit pas les sons du jeu (x64\audio\…) dans FiveM.app\mods : comme le disent les tutos
+        // des packs son, ils vont directement dans le dossier de GTA V (l'original est sauvegardé et remis au retrait).
+        static bool IsGtaAudio(string rel) => rel.StartsWith("mods/x64/audio/", StringComparison.OrdinalIgnoreCase);
+
+        // Fichier réellement écrit pour un chemin du pack
+        static string Dest(Manifest m, string fivemApp, string rel) =>
+            m.DossierGta != null && IsGtaAudio(rel) ? P(m.DossierGta, rel.Substring("mods/".Length)) : P(fivemApp, rel);
+
         static Manifest InstallContent(string content, string packName, string type, string libId, string source,
                                        string fivemApp, Action<string> log, Action<double> progress)
         {
@@ -109,11 +117,21 @@ namespace FiveMGfxManager
             Directory.CreateDirectory(backupDir);
 
             var manifest = new Manifest { Nom = packName, Id = packId, Source = source, Date = Now(), SurReshade = rsClash };
+            if (files.Any(IsGtaAudio))
+            {
+                manifest.DossierGta = GtaPath();
+                if (manifest.DossierGta != null)
+                    log($"Sons placés dans le dossier de GTA V ({manifest.DossierGta}\\x64\\audio) : " +
+                        "les originaux sont sauvegardés et remis au retrait du pack.");
+                else
+                    log("! GTA V introuvable : les sons sont posés dans FiveM.app\\mods, où FiveM risque de ne pas les lire.");
+            }
 
             // dossiers qui n'existaient pas avant (pour pouvoir les supprimer ensuite)
             var newDirs = new HashSet<string>();
             foreach (var rel in files)
             {
+                if (manifest.DossierGta != null && IsGtaAudio(rel)) continue; // dossiers du jeu : on ne les supprime jamais
                 var parts = rel.Split('/');
                 for (int i = 1; i < parts.Length; i++)
                 {
@@ -129,7 +147,7 @@ namespace FiveMGfxManager
                 for (int i = 0; i < files.Count; i++)
                 {
                     string rel = files[i];
-                    string dst = P(fivemApp, rel);
+                    string dst = Dest(manifest, fivemApp, rel);
                     if (File.Exists(dst))
                     {
                         CopyFile(dst, P(backupDir, rel));
@@ -162,11 +180,11 @@ namespace FiveMGfxManager
         static void Revert(Manifest m, string fivemApp, string backupDir, Action<string> log)
         {
             foreach (var rel in m.Ajoutes ?? new List<string>())
-                RemoveFile(P(fivemApp, rel));
+                RemoveFile(Dest(m, fivemApp, rel));
             foreach (var rel in m.Remplaces ?? new List<string>())
             {
                 string b = P(backupDir, rel);
-                if (File.Exists(b)) CopyFile(b, P(fivemApp, rel));
+                if (File.Exists(b)) CopyFile(b, Dest(m, fivemApp, rel));
                 else log("  ! sauvegarde manquante : " + rel);
             }
             // on supprime les dossiers créés par le pack, du plus profond au moins profond

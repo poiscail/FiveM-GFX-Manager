@@ -10,6 +10,9 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - retirer un ou plusieurs packs (clic droit, touche Suppr) et remettre les fichiers d'origine ;
 - installer un nouveau pack son ou d'armes : l'ancien qui touche les mêmes fichiers est retiré ;
 - avant de coller un pack son : chercher dans tous les dossiers et sous-dossiers de FiveM.app (et dans les `.rpf`), ainsi que dans `GTA V\mods`, les sons d'armes déjà présents, et proposer de les mettre de côté (ils reviennent au retrait du pack) ;
+- les sons du jeu d'un pack (`x64\audio\...`) sont copiés **directement dans `GTA V\x64\audio\sfx`**
+  (FiveM ne les lit pas dans `FiveM.app\mods`, comme l'indiquent les tutos des packs son) ; les
+  originaux sont sauvegardés et remis au retrait du pack ou par « Restaurer FiveM d'origine » ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
 - vider le cache FiveM.

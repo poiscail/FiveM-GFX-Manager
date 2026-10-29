@@ -47,12 +47,14 @@ namespace FiveMGfxManager
             if (audio.Count == 0) return hits;
 
             var names = new HashSet<string>(audio.Select(f => Path.GetFileName(f)), StringComparer.OrdinalIgnoreCase);
-            var mine = new HashSet<string>(files, StringComparer.OrdinalIgnoreCase);
+            string gta = GtaPath();
+            // avec GTA V trouvé, les sons du pack vont dans GTA V\x64\audio : une copie restée dans FiveM.app\mods ne sert à rien
+            var mine = new HashSet<string>(files.Where(f => gta == null || !IsGtaAudio(f)), StringComparer.OrdinalIgnoreCase);
             var owner = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var i in InstalledPacks().Where(i => i.LibId != libId))
             {
                 var m = ReadJson<Manifest>(ManifestPath(i.Id));
-                if (m != null) foreach (var f in Touched(m)) owner[f] = i.Nom;
+                if (m != null) foreach (var f in Touched(m).Where(f => m.DossierGta == null || !IsGtaAudio(f))) owner[f] = i.Nom;
             }
 
             bool Match(string path) =>
@@ -79,7 +81,6 @@ namespace FiveMGfxManager
             if (Directory.Exists(fivemApp))
                 foreach (var d in Directory.GetDirectories(fivemApp))
                     if (!ScanSkip.Contains(Path.GetFileName(d).ToLowerInvariant())) Scan(d, fivemApp);
-            string gta = GtaPath();
             if (gta != null && Directory.Exists(Path.Combine(gta, "mods"))) Scan(Path.Combine(gta, "mods"), null);
             return hits;
         }

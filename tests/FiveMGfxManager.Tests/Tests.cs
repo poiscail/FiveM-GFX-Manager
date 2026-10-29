@@ -60,30 +60,31 @@ class T {
     Core.DeleteFromLibrary(wp.Id,log);
     Core.InstallLibraryPack(g.Id,app,log,pr); Core.InstallLibraryPack(son.Id,app,log,pr); Core.InstallLibraryPack(arm.Id,app,log,pr);
     Check(Core.InstalledPacks().Count==3 && R(app+"/citizen/common/data/timecycle.xml")=="MOD", "3 packs installes ensemble");
-    Check(R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON", "pack son range dans mods/x64");
-    Check(R(app+"/mods/x64/audio/sfx/weapons_player.rpf")=="ARME" && !File.Exists(app+"/mods/lisezmoi.txt"), "pack armes : .rpf seul range a son chemin GTA");
+    Check(R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON" && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf"), "pack son pose dans GTA V/x64/audio (FiveM ne lit pas ces sons dans mods)");
+    Check(R(S+"/gta/x64/audio/sfx/WEAPONS_PLAYER.rpf")=="ARME" && !File.Exists(app+"/mods/lisezmoi.txt"), "pack armes : .rpf seul range a son chemin GTA");
     W(S+"/son2/RESIDENT.rpf","SON2");
     var son2=Core.ImportPack(S+"/son2","Son",log,pr);
     var cf=Core.ConflictingPacks(son2.Id);
     Check(cf.Count==1 && cf[0].LibId==son.Id, "nouveau pack son : l'ancien pack son est detecte (a retirer)");
-    try { Core.InstallLibraryPack(son2.Id,app,log,pr); Check(false,"son2"); } catch(GfxException e){ Check(e.Message.Contains("Retire d'abord") && R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON", "2e pack son refuse tant que l'ancien est installe"); }
+    try { Core.InstallLibraryPack(son2.Id,app,log,pr); Check(false,"son2"); } catch(GfxException e){ Check(e.Message.Contains("Retire d'abord") && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON", "2e pack son refuse tant que l'ancien est installe"); }
     Core.DeleteFromLibrary(son2.Id,log);
     Check(Core.ConflictingPacks(arm.Id).Count==0, "pas de conflit entre pack son et pack armes");
     try { Core.InstallLibraryPack(g.Id,app,log,pr); Check(false,"2x"); } catch(GfxException){ Check(true,"meme pack pas installe 2 fois"); }
     try { Core.AddModsToPack(arm.Id,S+"/couteau",log,pr); Check(false,"mods"); } catch(GfxException){ Check(true,"ajout de mods refuse si pack installe"); }
     try { Core.DeleteFromLibrary(arm.Id,log); Check(false,"del"); } catch(GfxException){ Check(true,"suppression refusee si pack installe"); }
     Core.UninstallPack(Core.InstalledPacks().Single(p=>p.LibId==arm.Id).Id,app,log,pr);
-    Check(!File.Exists(app+"/mods/x64/audio/sfx/weapons_player.rpf") && R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON", "retrait d'un pack sans toucher aux autres");
+    Check(R(S+"/gta/x64/audio/sfx/WEAPONS_PLAYER.rpf")=="GTA" && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON", "retrait d'un pack : son d'origine de GTA V remis, sans toucher aux autres");
     Core.AddModsToPack(arm.Id,S+"/couteau",log,pr); Core.AddModsToPack(arm.Id,S+"/couteau",log,pr);
     Check(Core.GetLibraryPack(arm.Id).Mods.Count==1, "mod ajoute au pack (sans doublon)");
     Core.InstallLibraryPack(arm.Id,app,log,pr);
-    Check(R(app+"/mods/update/update.rpf")=="COUTEAU" && R(app+"/mods/x64/audio/sfx/weapons_player.rpf")=="ARME", "pack avec mod ajoute installe");
+    Check(R(app+"/mods/update/update.rpf")=="COUTEAU" && R(S+"/gta/x64/audio/sfx/WEAPONS_PLAYER.rpf")=="ARME", "pack avec mod ajoute installe");
     Core.SetPackType(son.Id,"Armes"); Check(Core.GetLibraryPack(son.Id).Type=="Armes" && Core.InstalledPacks().Single(p=>p.LibId==son.Id).Type=="Armes", "changement de type");
     foreach (var p in Core.InstalledPacks().ToList()) Core.UninstallPack(p.Id,app,log,pr);
-    Check(R(app+"/citizen/common/data/timecycle.xml")=="ORIG" && !Directory.Exists(app+"/mods"), "tout retire : FiveM propre");
+    Check(R(app+"/citizen/common/data/timecycle.xml")=="ORIG" && !Directory.Exists(app+"/mods") && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="GTA" && R(S+"/gta/x64/audio/sfx/WEAPONS_PLAYER.rpf")=="GTA", "tout retire : FiveM et GTA V propres");
     Core.DeleteFromLibrary(arm.Id,log); Check(Core.ListLibrary().Count==2, "suppression de la bibliotheque");
     // sons d'armes deja presents ailleurs avant d'installer un pack son
     W(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf","VIEUX");
+    W(app+"/mods/x64/audio/sfx/RESIDENT.rpf","ANCIEN"); // copie laissee par une ancienne version (FiveM ne la lit pas)
     W(app+"/mods/casse.rpf","pas un rpf");
     W(S+"/gta/mods/x64/audio/sfx/RESIDENT.rpf","OPENIV");
     using (var bw=new BinaryWriter(File.Create(app+"/mods/addon.rpf"))) { // RPF7 non chiffre : content/x64/audio/sfx/WEAPONS_PLAYER.rpf
@@ -97,23 +98,25 @@ class T {
     }
     Check(Core.FindWeaponSounds(g.Id,app).Count==0, "pas de recherche de sons pour un pack graphique");
     var hits=Core.FindWeaponSounds(son.Id,app); foreach(var h in hits) log("  trouve : "+h);
-    Check(hits.Count(h=>h.Deplacable)==1 && hits.Single(h=>h.Deplacable).Rel=="mods/autre/x64/audio/sfx/RESIDENT.rpf", "son d'arme seul dans un sous-dossier de mods trouve");
+    Check(hits.Where(h=>h.Deplacable).Select(h=>h.Rel).OrderBy(r=>r).SequenceEqual(new[]{"mods/autre/x64/audio/sfx/RESIDENT.rpf","mods/x64/audio/sfx/RESIDENT.rpf"}), "son d'arme seul dans mods (et vieille copie dans mods/x64) trouve");
     Check(hits.Any(h=>h.Rel=="mods/addon.rpf" && h.Dedans=="content/x64/audio/sfx/WEAPONS_PLAYER.rpf"), "son d'arme trouve dans un .rpf de mods");
     Check(hits.Any(h=>h.Rel==null && h.Chemin.Replace('\\','/').EndsWith("gta/mods/x64/audio/sfx/RESIDENT.rpf")), "son d'arme trouve dans GTA V/mods");
     Core.InstallLibraryPack(son.Id,app,log,pr,hits);
-    Check(!File.Exists(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf") && R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="SON" && File.Exists(app+"/mods/addon.rpf"), "son d'arme mis de cote a l'installation (pas les autres mods)");
+    Check(!File.Exists(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf") && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf") && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON" && File.Exists(app+"/mods/addon.rpf"), "son d'arme mis de cote a l'installation (pas les autres mods)");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
-    Check(R(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf")=="VIEUX" && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf"), "son mis de cote remis au retrait du pack");
+    Check(R(app+"/mods/autre/x64/audio/sfx/RESIDENT.rpf")=="VIEUX" && R(app+"/mods/x64/audio/sfx/RESIDENT.rpf")=="ANCIEN" && R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="GTA", "son mis de cote remis au retrait du pack");
     Directory.Delete(app+"/mods",true); File.Delete(S+"/gta/mods/x64/audio/sfx/RESIDENT.rpf");
     // installation directe de .rpf seuls sans bibliotheque
-    Core.InstallPack(S+"/explosions.rpf",app,log,pr,"Armes"); Check(R(app+"/mods/x64/audio/sfx/explosions.rpf")=="BOUM", "install directe d'un .rpf de sons");
+    Core.InstallPack(S+"/explosions.rpf",app,log,pr,"Armes"); Check(R(S+"/gta/x64/audio/sfx/explosions.rpf")=="BOUM", "install directe d'un .rpf de sons");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Check(!File.Exists(S+"/gta/x64/audio/sfx/explosions.rpf"), "son ajoute a GTA V supprime au retrait");
     Core.InstallPack(S+"/x64e.rpf",app,log,pr); Check(R(app+"/mods/x64e.rpf")=="X64E", "x64e.rpf seul range a la racine de mods");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
     // chemins cherches dans le dossier de GTA V
     W(S+"/scanner/Sons Police/POLICE_SCANNER.rpf","RADIO");
-    Core.InstallPack(S+"/scanner",app,log,pr,"Son"); Check(R(app+"/mods/x64/audio/sfx/POLICE_SCANNER.rpf")=="RADIO", ".rpf seul range au chemin trouve dans GTA V");
-    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Core.InstallPack(S+"/scanner",app,log,pr,"Son"); Check(R(S+"/gta/x64/audio/sfx/POLICE_SCANNER.rpf")=="RADIO", ".rpf seul range au chemin trouve dans GTA V");
+    Core.RestoreOriginalBackup(app,log,pr);
+    Check(R(S+"/gta/x64/audio/sfx/POLICE_SCANNER.rpf")=="GTA" && Core.InstalledPacks().Count==0, "restauration d'origine : sons de GTA V remis aussi");
     W(S+"/heist/mpheist/dlc.rpf","HEIST");
     Core.InstallPack(S+"/heist",app,log,pr); Check(R(app+"/mods/update/x64/dlcpacks/mpheist/dlc.rpf")=="HEIST", "dlc.rpf range grace a son dossier mpheist");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);

@@ -39,6 +39,11 @@ REMARQUES
   sont reconnus (RESIDENT.rpf, WEAPONS_PLAYER.rpf, EXPLOSIONS.rpf, update.rpf, x64?.rpf).
   Un .rpf dont le nom n'existe pas dans GTA V (ex. aQuantV.rpf) est pose a la racine de mods,
   comme on le fait a la main.
+  Les sons du jeu (x64\audio\...) sont copies directement dans le dossier de GTA V
+  (GTA V\x64\audio\sfx), comme le disent les tutos des packs son : FiveM ne les lit pas
+  dans FiveM.app\mods. Les originaux sont sauvegardes et remis au retrait du pack.
+  Ferme FiveM avant, et relance-le apres. Une verification des fichiers Steam ou une mise
+  a jour de GTA V remet les sons d'origine : il suffit alors de retirer puis reinstaller le pack.
   Les fichiers bruts a remplacer avec OpenIV (.ytd, .ydr, .awc...) ne sont pas pris en charge.
 - Les archives protegees par mot de passe ne sont pas prises en charge :
   decompresse-les toi-meme puis choisis "Dossier...".

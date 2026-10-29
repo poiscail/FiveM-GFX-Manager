@@ -65,6 +65,23 @@ namespace FiveMGfxManager
             var info = OriginalBackupInfo() ?? throw new GfxException("Aucune sauvegarde d'origine n'existe.");
             string srcRoot = OriginalBackupDir();
 
+            // les sons posés dans le dossier de GTA V ne sont pas dans la sauvegarde de FiveM.app : on remet les originaux
+            foreach (var p in LoadConfig().PacksInstalles)
+            {
+                var m = ReadJson<Manifest>(ManifestPath(p.Id));
+                if (m?.DossierGta == null) continue;
+                log($"Sons d'origine de GTA V remis (pack « {p.Nom} »)…");
+                string backupDir = Path.Combine(InstallsDir(), p.Id, "fichiers_remplaces");
+                foreach (var rel in (m.Ajoutes ?? new List<string>()).Where(IsGtaAudio))
+                    RemoveFile(Dest(m, fivemApp, rel));
+                foreach (var rel in (m.Remplaces ?? new List<string>()).Where(IsGtaAudio))
+                {
+                    string b = P(backupDir, rel);
+                    if (File.Exists(b)) CopyFile(b, Dest(m, fivemApp, rel));
+                    else log("  ! sauvegarde manquante : " + rel);
+                }
+            }
+
             foreach (var d in FivemDirs)
             {
                 string target = Path.Combine(fivemApp, d);

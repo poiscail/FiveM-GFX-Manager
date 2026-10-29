@@ -90,6 +90,8 @@ namespace FiveMGfxManager
         [DataMember] public List<string> SurReshade = new List<string>();
         // sons d'armes de FiveM.app\mods mis de côté avant l'installation (remis au retrait du pack)
         [DataMember] public List<string> Deplaces = new List<string>();
+        // dossier de GTA V où sont allés les sons (mods/x64/audio/… → x64\audio\…) ; null : tout est dans FiveM.app
+        [DataMember] public string DossierGta;
     }
 
     [DataContract]

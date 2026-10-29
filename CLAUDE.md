@@ -45,7 +45,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (59 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (61 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement
@@ -92,6 +92,13 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 - **Retrait multiple** : la liste accepte plusieurs packs sélectionnés (Ctrl/Maj, clic droit, Suppr).
   À l'installation, `ConflictingPacks(libId)` donne les packs installés qui touchent les mêmes
   fichiers (ex. un autre pack son) : l'interface propose de les retirer avant (sinon refus).
+- **Sons dans GTA V** : FiveM ne lit pas les sons du jeu placés dans `FiveM.app\mods\x64\audio`
+  (tutos des packs son : « pas dans le dossier mods »). `InstallContent` met `Manifest.DossierGta =
+  GtaPath()` quand le pack a des fichiers `mods/x64/audio/...` ; `Dest(m, fivemApp, rel)` les envoie
+  alors vers `GTA V\x64\audio\...` (sauvegarde des originaux dans `fichiers_remplaces\`, comme les
+  autres). Les chemins du manifeste restent `mods/x64/...`. Ancien manifeste sans `DossierGta` :
+  tout reste dans FiveM.app. `RestoreOriginalBackup` remet d'abord les sons de GTA V des packs
+  installés. `FindWeaponSounds` signale une copie restée dans `FiveM.app\mods\x64\audio` (déplaçable).
 - **Restaurer d'origine** : supprime citizen/mods/plugins et recopie la sauvegarde. Remet aussi à
   zéro l'état du pack et de ReShade.
 - **ReShade** : lit reshade.me et cherche `/downloads/ReShade_Setup_X.Y.Z.exe` (version normale,

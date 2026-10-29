@@ -57,6 +57,27 @@ UTILISATION CONSEILLEE
 8. Onglet "Profils" : installe tes packs, choisis preset et graphismes puis
    "Enregistrer la config actuelle". "Appliquer le profil" remet tout d'un clic
    (packs en trop retires, packs manquants installes, preset et graphismes remis).
+9. Liste des packs :
+   - Ctrl+F (ou la case "Rechercher...") cherche dans le nom, le type, le dossier
+     et le commentaire. Echap efface la recherche.
+   - Clic sur le titre d'une colonne pour trier (re-clic : ordre inverse).
+   - "Nouveau dossier..." cree un dossier DANS le dossier ouvert (sous-dossiers).
+   - Clic droit -> "Favori" (etoile, en tete de liste), "Note" (ou clic sur les
+     etoiles de la colonne NOTE), "Commentaire...".
+   - Clic droit -> "Apercu de l'installation..." : fichiers remplaces, nouveaux
+     fichiers, conflits. Avant d'installer, le logiciel previent si le pack contient
+     des programmes ou des scripts (.exe, .bat, .dll inconnue...).
+10. Bouton "Lancer FiveM" : lance FiveM, ou applique d'abord un profil puis lance.
+11. "Annuler la derniere action" (ou Ctrl+Z) : annule la derniere installation,
+    le dernier retrait ou la derniere modification de fichier.
+12. "Outils..." :
+    - "Verifier les packs installes" : apres une mise a jour de FiveM ou de GTA V,
+      certains fichiers des packs peuvent etre remis d'origine. Le logiciel les
+      retrouve (aussi au demarrage) et les remet d'un clic.
+    - "Exporter la bibliotheque..." / "Importer une sauvegarde..." : pour garder
+      ou deplacer tes packs, profils et reglages sur un autre PC.
+13. Quand une nouvelle version est disponible, un bouton "Mise a jour ... disponible"
+    apparait en bas a gauche : un clic la telecharge et relance le logiciel.
 
 Les sauvegardes sont dans %APPDATA%\FiveMGfxManager
 

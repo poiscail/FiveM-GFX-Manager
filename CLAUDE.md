@@ -47,12 +47,14 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Core/Core.Presets.cs` | Presets ReShade de `plugins` (liste, preset actif, copie), mode performance, rangement des dossiers de shaders inutilisés (`shaders_ranges`) |
 | `Core/Core.Profiles.cs` | Profils complets (`profils.json` : packs + preset + mode perf + copie des graphismes), taille installée, alerte VRAM (`FIVEM_GFX_VRAM` pour les tests) |
 | `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Mods / Sauvegarde / ReShade / QuantV, liste de packs + détails, journal). Les dossiers sont des lignes de la liste (`PackRow.Folder`, ligne `Up` « Retour » ; `folderFilter` = dossier ouvert) : double-clic pour ouvrir, glisser-déposer interne (`PackDrag`) pour ranger. Les opérations tournent en arrière-plan (`Task.Run`) |
+| `Core/Core.Maintenance.cs` | Aperçu d'installation (`PreviewInstall`), fichiers suspects (`SuspiciousFiles`, `PackSuspects` mis en cache dans `LibraryPack.Suspects`), vérification après une mise à jour du jeu (`Manifest.Tailles` = tailles écrites, `CheckInstalledPacks`, `RepairPack` ; `.ini/.txt/.cfg/.json/.log` ignorés), `LaunchFivem` |
 | `UI/MainForm.Tools.cs` | Pages Graphismes / Presets ReShade / Profils (classe partielle) |
+| `UI/MainForm.Extras.cs` | Recherche (Ctrl+F), tri des colonnes (`sortColumn`), étoiles cliquables (`NoteColumn`), favoris / commentaire, détails Note / Installation, vérification au démarrage (`StartupChecks`), menus Lancer FiveM / Outils, annuler (Ctrl+Z), export / import, mise à jour du logiciel |
 | `UI/Theme.cs`, `UI/Widgets.cs` | Couleurs du thème sombre, contrôles dessinés à la main (boutons, segments, `DarkListView`…) |
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (114 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (125 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement

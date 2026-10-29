@@ -112,13 +112,17 @@ namespace FiveMGfxManager
                     log("  fichier remis comme avant : " + e.Cible);
                     break;
             }
-            // relu : l'annulation elle-même a pu ajouter des lignes
+            // relu : l'annulation elle-même a pu ajouter des lignes, marquées annulées elles aussi
+            // pour que « Annuler la dernière action » remonte l'historique au lieu de refaire
+            var before = new HashSet<string>(list.Select(x => x.Id));
             list = ListHistory();
-            var same = list.FirstOrDefault(x => x.Id == id);
-            if (same != null) same.Annule = true;
+            foreach (var x in list.Where(x => x.Id == id || !before.Contains(x.Id))) x.Annule = true;
             SaveHistory(list);
             progress(1);
         }
+
+        // Dernière action pas encore annulée (null : rien à annuler)
+        public static HistoryEntry LastUndoable() => ListHistory().FirstOrDefault(e => !e.Annule);
 
         public static void ClearHistory()
         {

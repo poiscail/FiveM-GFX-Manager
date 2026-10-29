@@ -43,7 +43,18 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - onglet **Profils** : enregistre la config actuelle (packs installés, preset, mode performance, graphismes)
   et la remet d'un clic ;
 - taille des packs / mods installés et alerte quand ils pèsent plus de la moitié de la mémoire vidéo ;
-- vider le cache FiveM.
+- vider le cache FiveM ;
+- **recherche** dans la liste (Ctrl+F : nom, type, dossier, commentaire), **tri** en cliquant sur les
+  colonnes, **sous-dossiers** (un dossier créé dans le dossier ouvert), **favoris** en tête de liste,
+  **note** de 1 à 5 étoiles (clic dans la colonne NOTE) et **commentaire** par pack ;
+- **aperçu de l'installation** (fichiers remplacés / nouveaux, conflits) et **alerte fichiers suspects**
+  (`.exe`, scripts, `.dll` autres que ReShade/ENB) avant d'installer ;
+- **vérification après une mise à jour de FiveM / GTA V** : au démarrage, les fichiers des packs
+  installés remis d'origine sont détectés et remis d'un clic (Outils → Vérifier les packs installés) ;
+- **Lancer FiveM**, directement ou après avoir appliqué un profil ;
+- **Annuler la dernière action** (Ctrl+Z) ;
+- **exporter / importer** la bibliothèque, les profils et les réglages (Outils) ;
+- **mise à jour automatique** : une nouvelle version publiée sur GitHub est proposée et installée d'un clic.
 
 Formats de packs acceptés : arborescence `citizen` / `mods` / `plugins`, format GTA `x64/...`
 ou `update/...` (copié dans `mods`, typique des packs son), ou fichiers `.rpf` seuls. Pour un `.rpf`
@@ -83,8 +94,10 @@ src/FiveMGfxManager/
   Core/   Core.cs (config, chemins FiveM / GTA V), Core.Archives.cs (décompression, normalisation),
           Core.Install.cs (packs), Core.Library.cs (bibliothèque), Core.Backup.cs, Core.Reshade.cs,
           Core.QuantV.cs (mise à jour de QuantV), Core.Graphics.cs (profils graphiques),
-          Core.Presets.cs (presets ReShade, shaders), Core.Profiles.cs (profils complets, VRAM)
+          Core.Presets.cs (presets ReShade, shaders), Core.Profiles.cs (profils complets, VRAM),
+          Core.Maintenance.cs (aperçu, fichiers suspects, vérification / réparation, lancement)
   UI/     MainForm.cs (interface), MainForm.Tools.cs (pages Graphismes / Presets / Profils),
+          MainForm.Extras.cs (recherche, tri, notes, outils, annuler, mise à jour),
           Theme.cs (couleurs), Widgets.cs (contrôles dessinés)
   Program.cs, Assets/icon.ico, app.manifest
 tests/FiveMGfxManager.Tests/   tests de la logique

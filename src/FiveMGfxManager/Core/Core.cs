@@ -50,6 +50,10 @@ namespace FiveMGfxManager
         [DataMember] public List<string> Mods = new List<string>();
         [DataMember] public string Dossier;      // dossier de rangement dans le logiciel (null : aucun)
         [DataMember] public List<string> Armes;  // fichiers du jeu remplacés (.ydr, .ytd…) ; null : pas encore calculé
+        [DataMember] public bool Favori;
+        [DataMember] public int Note;            // 0 à 5 étoiles
+        [DataMember] public string Commentaire;
+        [DataMember] public List<string> Suspects; // .exe, scripts… trouvés à l'import (null : pas encore analysé)
     }
 
     [DataContract]
@@ -98,6 +102,8 @@ namespace FiveMGfxManager
         [DataMember] public List<string> Armes;
         // fichiers retirés des paquets du pack → id d'installation du pack qui les fournit à la place
         [DataMember] public Dictionary<string, string> Exclues;
+        // taille des fichiers écrits, pour voir ceux qu'une mise à jour de FiveM / GTA a remplacés
+        [DataMember] public Dictionary<string, long> Tailles;
     }
 
     [DataContract]

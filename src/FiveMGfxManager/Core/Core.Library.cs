@@ -68,11 +68,15 @@ namespace FiveMGfxManager
                     Id = id, Nom = SourceName(source), Type = type ?? "Graphique", Source = source, Date = Now(), Dossier = folder,
                     Taille = FolderSize(Path.Combine(dir, "contenu")),
                     Armes = StreamedFiles(Path.Combine(dir, "contenu"), files),
+                    Suspects = SuspiciousFiles(Path.Combine(dir, "contenu")),
                 };
                 SaveLibraryPack(pack);
                 progress(1);
                 log($"Pack « {pack.Nom} » ({pack.Type}) ajouté à la bibliothèque : {files.Count} fichiers, {HumanSize(pack.Taille)}.");
                 if (pack.Armes.Count > 0) log("Armes remplacées : " + string.Join(", ", WeaponNames(pack.Armes)));
+                if (pack.Suspects.Count > 0)
+                    log($"! Attention : {pack.Suspects.Count} fichier(s) suspect(s) dans le pack (programmes, scripts) : " +
+                        string.Join(", ", pack.Suspects.Take(5).Select(Path.GetFileName)) + (pack.Suspects.Count > 5 ? "…" : ""));
                 return pack;
             }
             catch
@@ -105,6 +109,7 @@ namespace FiveMGfxManager
                 if (!pack.Mods.Contains(name, StringComparer.OrdinalIgnoreCase)) pack.Mods.Add(name);
                 pack.Taille = FolderSize(content);
                 pack.Armes = StreamedFiles(content, ListFiles(content));
+                pack.Suspects = SuspiciousFiles(content);
                 SaveLibraryPack(pack);
                 progress(1);
                 log($"Mods « {name} » ajoutés à « {pack.Nom} » : {files.Count} fichiers" +
@@ -137,23 +142,41 @@ namespace FiveMGfxManager
 
         // ------------------------------------------------------------------ //
         //  Dossiers de rangement de la bibliothèque (dans le logiciel seulement)
+        //  Un sous-dossier s'écrit « Parent/Enfant ».
         // ------------------------------------------------------------------ //
 
         static string FoldersPath() => Path.Combine(LibraryDir(), "dossiers.json");
 
-        // Dossiers créés (même vides) et dossiers des packs
+        public static string ParentFolder(string folder)
+        {
+            int i = folder?.LastIndexOf('/') ?? -1;
+            return i < 0 ? null : folder.Substring(0, i);
+        }
+
+        public static string FolderLeaf(string folder) => folder?.Substring(folder.LastIndexOf('/') + 1);
+
+        // Le dossier est « folder » ou un de ses sous-dossiers
+        public static bool IsInFolder(string dossier, string folder) =>
+            !string.IsNullOrEmpty(dossier) && (dossier.Equals(folder, StringComparison.OrdinalIgnoreCase) ||
+                                               dossier.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase));
+
+        // Dossiers créés (même vides), dossiers des packs et tous leurs parents
         public static List<string> LibraryFolders()
         {
             var saved = ReadJson<List<string>>(FoldersPath()) ?? new List<string>();
-            return saved.Concat(ListLibrary().Select(p => p.Dossier).Where(d => !string.IsNullOrEmpty(d)))
-                        .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(d => d, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var all = new List<string>();
+            foreach (var d in saved.Concat(ListLibrary().Select(p => p.Dossier)).Where(d => !string.IsNullOrEmpty(d)))
+                for (string f = d; f != null; f = ParentFolder(f))
+                    all.Add(f);
+            return all.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(d => d, StringComparer.CurrentCultureIgnoreCase).ToList();
         }
 
+        // Nom complet propre : « A / B » → « A/B »
         static string FolderName(string name)
         {
-            name = (name ?? "").Trim();
-            if (name.Length == 0) throw new GfxException("Le nom du dossier ne peut pas être vide.");
-            return name;
+            var parts = (name ?? "").Replace('\\', '/').Split('/').Select(s => s.Trim()).ToList();
+            if (parts.Any(s => s.Length == 0)) throw new GfxException("Le nom du dossier ne peut pas être vide.");
+            return string.Join("/", parts);
         }
 
         public static void CreateFolder(string name)
@@ -161,41 +184,46 @@ namespace FiveMGfxManager
             name = FolderName(name);
             var all = LibraryFolders();
             if (all.Contains(name, StringComparer.OrdinalIgnoreCase))
-                throw new GfxException($"Le dossier « {name} » existe déjà.");
+                throw new GfxException($"Le dossier « {FolderLeaf(name)} » existe déjà.");
             all.Add(name);
             Directory.CreateDirectory(LibraryDir());
             WriteJson(FoldersPath(), all);
         }
 
+        // Renomme (ou déplace) un dossier, ses sous-dossiers suivent
         public static void RenameFolder(string old, string name)
         {
             name = FolderName(name);
+            if (IsInFolder(name, old) && !name.Equals(old, StringComparison.OrdinalIgnoreCase))
+                throw new GfxException("Un dossier ne peut pas aller dans lui-même.");
             var all = LibraryFolders();
             if (!old.Equals(name, StringComparison.OrdinalIgnoreCase) && all.Contains(name, StringComparer.OrdinalIgnoreCase))
-                throw new GfxException($"Le dossier « {name} » existe déjà.");
-            foreach (var p in ListLibrary().Where(p => old.Equals(p.Dossier, StringComparison.OrdinalIgnoreCase)))
+                throw new GfxException($"Le dossier « {FolderLeaf(name)} » existe déjà.");
+            string Move(string d) => IsInFolder(d, old) ? name + d.Substring(old.Length) : d;
+            foreach (var p in ListLibrary().Where(p => IsInFolder(p.Dossier, old)))
             {
-                p.Dossier = name;
+                p.Dossier = Move(p.Dossier);
                 SaveLibraryPack(p);
             }
-            WriteJson(FoldersPath(), all.Select(d => d.Equals(old, StringComparison.OrdinalIgnoreCase) ? name : d).ToList());
+            WriteJson(FoldersPath(), all.Select(Move).Distinct(StringComparer.OrdinalIgnoreCase).ToList());
         }
 
-        // Supprime le dossier : ses packs restent dans la bibliothèque, sans dossier
+        // Supprime le dossier et ses sous-dossiers : leurs packs restent dans la bibliothèque, dans le dossier parent
         public static void DeleteFolder(string name)
         {
-            foreach (var p in ListLibrary().Where(p => name.Equals(p.Dossier, StringComparison.OrdinalIgnoreCase)))
+            string parent = ParentFolder(name);
+            foreach (var p in ListLibrary().Where(p => IsInFolder(p.Dossier, name)))
             {
-                p.Dossier = null;
+                p.Dossier = parent;
                 SaveLibraryPack(p);
             }
-            WriteJson(FoldersPath(), LibraryFolders().Where(d => !d.Equals(name, StringComparison.OrdinalIgnoreCase)).ToList());
+            WriteJson(FoldersPath(), LibraryFolders().Where(d => !IsInFolder(d, name)).ToList());
         }
 
         // Range des packs dans un dossier (null : aucun dossier)
         public static void MoveToFolder(IEnumerable<string> ids, string folder)
         {
-            folder = string.IsNullOrWhiteSpace(folder) ? null : folder.Trim();
+            folder = string.IsNullOrWhiteSpace(folder) ? null : FolderName(folder);
             if (folder != null)
             {
                 var all = LibraryFolders();
@@ -209,6 +237,34 @@ namespace FiveMGfxManager
                 p.Dossier = folder;
                 SaveLibraryPack(p);
             }
+        }
+
+        // ------------------------------------------------------------------ //
+        //  Favoris, notes et commentaires
+        // ------------------------------------------------------------------ //
+
+        public static void SetFavorite(IEnumerable<string> ids, bool on)
+        {
+            foreach (var id in ids)
+            {
+                var p = GetLibraryPack(id);
+                p.Favori = on;
+                SaveLibraryPack(p);
+            }
+        }
+
+        public static void SetRating(string id, int note)
+        {
+            var p = GetLibraryPack(id);
+            p.Note = Math.Max(0, Math.Min(5, note));
+            SaveLibraryPack(p);
+        }
+
+        public static void SetComment(string id, string text)
+        {
+            var p = GetLibraryPack(id);
+            p.Commentaire = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+            SaveLibraryPack(p);
         }
 
         public static void DeleteFromLibrary(string id, Action<string> log)

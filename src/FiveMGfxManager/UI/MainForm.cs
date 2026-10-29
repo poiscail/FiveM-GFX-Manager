@@ -21,7 +21,7 @@ namespace FiveMGfxManager
             public bool Up;
             public bool IsPack => Folder == null && !Up;
             public string Key => Up ? "up" : Folder != null ? "dir:" + Folder : Lib?.Id ?? "inst:" + Inst.Id;
-            public string Nom => Up ? "Retour" : Folder ?? Lib?.Nom ?? Inst.Nom;
+            public string Nom => Up ? "Retour" : Folder != null ? Core.FolderLeaf(Folder) : Lib?.Nom ?? Inst.Nom;
             public string Type => Lib?.Type ?? Inst?.Type ?? "Graphique";
         }
 
@@ -63,7 +63,7 @@ namespace FiveMGfxManager
         readonly Badge detailState = new Badge();
         readonly Label detailSize = new Label(), detailAdded = new Label(), detailInstalled = new Label(),
                        detailSource = new Label(), detailMods = new Label(), detailFolder = new Label(),
-                       detailWeapons = new Label();
+                       detailWeapons = new Label(), detailNote = new Label(), detailPreview = new Label();
         FlatButton installBtn, removeBtn, addModsBtn, typeBtn, deleteBtn, folderBtn;
         string folderFilter; // dossier ouvert dans la liste (null : liste principale)
         int dropIndex = -1;  // dossier survolé pendant un glisser-déposer
@@ -149,7 +149,11 @@ namespace FiveMGfxManager
             ShowPage(pages[0]);
             RefreshStatus();
             Log("Prêt. Ferme FiveM avant toute opération.", Theme.Muted);
-            Shown += (s, e) => ActiveControl = pages[0].Nav;
+            Shown += (s, e) =>
+            {
+                ActiveControl = pages[0].Nav;
+                StartupChecks();
+            };
         }
 
         protected override void OnHandleCreated(EventArgs e)
@@ -206,12 +210,18 @@ namespace FiveMGfxManager
             side.Controls.Add(new Panel { Margin = new Padding(0) }, 0, side.RowStyles.Count - 1);
 
             AddRow(side, Caption("OUTILS", new Padding(6, 0, 0, 6)));
-            foreach (var b in new[]
-            {
-                SideBtn("Vider le cache FiveM", Glyph.Clear, ClearCache),
-                SideBtn("Ouvrir FiveM.app", Glyph.OpenFolder, OpenFivem),
-                SideBtn("Dossier des sauvegardes", Glyph.Folder, OpenBackups),
-            })
+            FlatButton launch = null, tools = null;
+            launch = SideBtn("Lancer FiveM", Glyph.Play, () => ShowLaunchMenu(launch));
+            tools = SideBtn("Outils…", Glyph.Clear, () => ShowToolsMenu(tools));
+            var undo = SideBtn("Annuler la dernière action", Glyph.History, UndoLast);
+            tips.SetToolTip(undo, "Ctrl+Z");
+            updateBtn = Btn("Mise à jour disponible", InstallUpdate, ButtonKind.Primary, Glyph.Download);
+            updateBtn.AutoSize = false;
+            updateBtn.Dock = DockStyle.Fill;
+            updateBtn.Height = 38;
+            updateBtn.Margin = new Padding(0, 6, 0, 2);
+            updateBtn.Visible = false;
+            foreach (var b in new[] { launch, undo, tools, updateBtn })
                 AddRow(side, b);
 
             fivemState.AutoSize = true;
@@ -325,9 +335,6 @@ namespace FiveMGfxManager
             {
                 // passage Packs <-> Mods : même liste, autre filtre
                 typeLabel.Visible = typeBox.Visible = !ModsView;
-                emptyList.Text = ModsView
-                    ? "Aucun mod pour l'instant.\n\nGlisse ici tes .rpf, .zip, .7z ou .rar,\nils iront dans FiveM.app\\mods."
-                    : "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\nou clique sur « Ajouter des archives… ».";
                 packList.SelectedItems.Clear();
                 folderFilter = null;
                 RefreshPackList();
@@ -339,7 +346,8 @@ namespace FiveMGfxManager
         void ShowFolderTitle()
         {
             if (current != pages[0] && current != modsPage) return;
-            pageTitle.Text = folderFilter == null ? current.Title : $"{current.Title}  ›  {folderFilter}";
+            pageTitle.Text = Searching ? $"{current.Title}  ›  recherche"
+                           : folderFilter == null ? current.Title : $"{current.Title}  ›  {folderFilter.Replace("/", "  ›  ")}";
         }
 
         // ---------------------------------------------------- petits outils --
@@ -412,11 +420,28 @@ namespace FiveMGfxManager
             bar.Controls.Add(typeBox, 1, 0);
             bar.Controls.Add(Btn("Ajouter des archives…", ImportArchives, ButtonKind.Primary, Glyph.Add), 2, 0);
             bar.Controls.Add(Btn("Ajouter un dossier…", ImportFolder, ButtonKind.Secondary, Glyph.Folder), 3, 0);
-            folderBtn = Btn("Nouveau dossier…", () => { if (folderFilter != null) OpenFolder(null); else AskNewFolder(); },
-                            ButtonKind.Ghost, Glyph.Folder);
+            folderBtn = Btn("Nouveau dossier…", AskNewFolder, ButtonKind.Ghost, Glyph.Folder);
             folderBtn.Margin = new Padding(14, 0, 0, 0);
-            tips.SetToolTip(folderBtn, "Double-clic sur un dossier pour l'ouvrir, glisse les packs dessus pour les ranger");
+            tips.SetToolTip(folderBtn, "Crée un dossier (dans le dossier ouvert). Double-clic sur un dossier pour l'ouvrir, " +
+                                       "glisse les packs dessus pour les ranger");
             bar.Controls.Add(folderBtn, 4, 0);
+            searchInput.Placeholder = "Rechercher…  (Ctrl+F)";
+            searchInput.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            searchInput.MinimumSize = new Size(LogicalToDeviceUnits(120), 0);
+            searchInput.Margin = new Padding(14, 0, 0, 0);
+            searchInput.Box.TextChanged += (s, e) => { packList.SelectedItems.Clear(); RefreshPackList(); };
+            searchInput.Box.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Escape) { searchInput.Box.Text = ""; e.SuppressKeyPress = true; }
+                if (e.KeyCode == Keys.Down || e.KeyCode == Keys.Enter)
+                {
+                    packList.Focus();
+                    if (packList.Items.Count > 0 && packList.SelectedItems.Count == 0) packList.Items[0].Selected = packList.Items[0].Focused = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
+            tips.SetToolTip(searchInput.Box, "Cherche dans le nom, le type, le dossier et le commentaire (Échap pour effacer)");
+            bar.Controls.Add(searchInput, 5, 0);
             bar.Margin = new Padding(0, 0, 0, 14);
             tips.SetToolTip(typeBox, "Type donné aux packs que tu ajoutes (modifiable ensuite)");
             page.Controls.Add(bar, 0, 0);
@@ -432,7 +457,7 @@ namespace FiveMGfxManager
             packList.BackColor = Theme.Card;
             packList.ForeColor = Theme.Fg;
             packList.BorderStyle = BorderStyle.None;
-            packList.HeaderStyle = ColumnHeaderStyle.Nonclickable;
+            packList.HeaderStyle = ColumnHeaderStyle.Clickable;
             packList.ShowItemToolTips = true;
             // hauteur des lignes
             packList.SmallImageList = new ImageList { ImageSize = new Size(1, LogicalToDeviceUnits(42)) };
@@ -441,6 +466,7 @@ namespace FiveMGfxManager
             packList.Columns.Add("TYPE", LogicalToDeviceUnits(115));
             packList.Columns.Add("TAILLE", LogicalToDeviceUnits(85));
             packList.Columns.Add("MODS", LogicalToDeviceUnits(65));
+            packList.Columns.Add("NOTE", LogicalToDeviceUnits(100));
             packList.Columns.Add("ÉTAT", LogicalToDeviceUnits(130));
             var headerFont = Theme.Ui(8F, FontStyle.Bold);
             var nameFont = Theme.Semibold(10F);
@@ -451,9 +477,13 @@ namespace FiveMGfxManager
                 using (var p = new Pen(Theme.Border))
                     e.Graphics.DrawLine(p, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
                 var r = Rectangle.FromLTRB(e.Bounds.Left + LogicalToDeviceUnits(12), e.Bounds.Top, e.Bounds.Right, e.Bounds.Bottom);
-                TextRenderer.DrawText(e.Graphics, e.Header.Text, headerFont, r, Theme.Muted,
+                // colonne de tri : ▲ croissant, ▼ décroissant
+                string text = e.ColumnIndex == sortColumn ? e.Header.Text + (sortDesc ? "  ▼" : "  ▲") : e.Header.Text;
+                TextRenderer.DrawText(e.Graphics, text, headerFont, r, e.ColumnIndex == sortColumn ? Theme.Fg : Theme.Muted,
                                       TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding);
             };
+            packList.ColumnClick += (s, e) => SortBy(e.Column);
+            packList.MouseClick += (s, e) => ClickStars(e);
             packList.DrawItem += (s, e) => { };
             packList.DrawSubItem += (s, e) => DrawPackCell(e, nameFont, smallFont);
             packList.Resize += (s, e) => FitColumns();
@@ -463,18 +493,18 @@ namespace FiveMGfxManager
             {
                 var r = packList.GetItemAt(e.X, e.Y)?.Tag as PackRow;
                 if (r == null) return;
-                if (r.Up) OpenFolder(null);
+                if (r.Up) OpenFolder(Core.ParentFolder(folderFilter));
                 else if (r.Folder != null) OpenFolder(r.Folder);
-                else if (!busy) InstallSelected();
+                else if (!busy && StarAt(e.Location) < 0) InstallSelected();
             };
             // Suppr : retire de FiveM les packs sélectionnés (ou les supprime de la bibliothèque s'ils ne sont pas installés)
             packList.KeyDown += (s, e) =>
             {
                 var entry = SelectedEntry();
-                if (e.KeyCode == Keys.Back && folderFilter != null) { OpenFolder(null); return; }
+                if (e.KeyCode == Keys.Back && folderFilter != null && !Searching) { OpenFolder(Core.ParentFolder(folderFilter)); return; }
                 if (e.KeyCode == Keys.Enter && entry != null && !entry.IsPack)
                 {
-                    OpenFolder(entry.Up ? null : entry.Folder);
+                    OpenFolder(entry.Up ? Core.ParentFolder(folderFilter) : entry.Folder);
                     return;
                 }
                 if (busy) return;
@@ -502,8 +532,7 @@ namespace FiveMGfxManager
             emptyList.Dock = DockStyle.Fill;
             emptyList.TextAlign = ContentAlignment.MiddleCenter;
             emptyList.ForeColor = Theme.Muted;
-            emptyList.Text = "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\n" +
-                             "ou clique sur « Ajouter des archives… ».";
+            emptyList.Text = EmptyPacks;
 
             // glisser-déposer des archives / dossiers sur la liste (sur un dossier : importées dedans)
             emptyList.AllowDrop = packList.AllowDrop = true;
@@ -527,7 +556,7 @@ namespace FiveMGfxManager
                 var target = (PackRow)DropTarget(e)?.Tag;
                 SetDropIndex(-1);
                 if (busy) return;
-                string dest = target == null ? folderFilter : target.Up ? null : target.Folder;
+                string dest = target == null ? folderFilter : target.Up ? Core.ParentFolder(folderFilter) : target.Folder;
                 if (e.Data.GetDataPresent(PackDrag))
                 {
                     if (target != null) Try(() => Core.MoveToFolder((string[])e.Data.GetData(PackDrag), dest));
@@ -551,6 +580,13 @@ namespace FiveMGfxManager
             var rename = new ToolStripMenuItem("Renommer…", null, (s, e) => RenameSelected()) { ShortcutKeyDisplayString = "F2" };
             var folder = new ToolStripMenuItem("Ranger dans un dossier");
             folder.DropDown = new ToolStripDropDownMenu { Renderer = new DarkMenuRenderer(), Font = menu.Font, ShowImageMargin = false };
+            var fav = new ToolStripMenuItem("Favori", null, (s, e) => ToggleFavorite());
+            var note = new ToolStripMenuItem("Note");
+            note.DropDown = new ToolStripDropDownMenu { Renderer = new DarkMenuRenderer(), Font = menu.Font, ShowImageMargin = false };
+            var comment = new ToolStripMenuItem("Commentaire…", null, (s, e) => EditComment());
+            var preview = new ToolStripMenuItem("Aperçu de l'installation…", null, (s, e) => ShowInstallPreview());
+            var sep1 = new ToolStripSeparator();
+            var sep2 = new ToolStripSeparator();
             var delete = new ToolStripMenuItem("Supprimer de la bibliothèque", null, (s, e) => DeleteSelected()) { Tag = "danger" };
             // clic droit sur un dossier, ou dans le vide
             string dir = null;
@@ -560,7 +596,7 @@ namespace FiveMGfxManager
             var newDir = new ToolStripMenuItem("Nouveau dossier…", null, (s, e) => AskNewFolder());
             menu.Items.AddRange(new ToolStripItem[]
             {
-                install, remove, new ToolStripSeparator(), mods, type, rename, folder, new ToolStripSeparator(), delete,
+                install, preview, remove, sep1, fav, note, comment, mods, type, rename, folder, sep2, delete,
                 openDir, renameDir, deleteDir, newDir,
             });
             foreach (ToolStripItem i in menu.Items) { i.ForeColor = Theme.Fg; i.Padding = new Padding(4, 3, 4, 3); }
@@ -582,17 +618,32 @@ namespace FiveMGfxManager
                 int inst = rows.Count(r => r.Inst != null), del = rows.Count(r => r.Lib != null && r.Inst == null);
                 bool one = rows.Count == 1;
                 install.Visible = one && rows[0].Inst == null;
+                preview.Visible = install.Visible && rows[0].Lib != null;
                 remove.Visible = inst > 0;
                 remove.Text = inst > 1 ? $"Retirer les {inst} packs de FiveM" : "Retirer de FiveM";
                 mods.Visible = type.Visible = rename.Visible = one && rows[0].Lib != null;
                 var libIds = rows.Where(r => r.Lib != null).Select(r => r.Lib.Id).ToList();
-                folder.Visible = libIds.Count > 0;
-                if (folder.Visible) FillFolderMenu(folder.DropDownItems, libIds, rows.First(r => r.Lib != null).Lib.Dossier);
+                folder.Visible = fav.Visible = note.Visible = libIds.Count > 0;
+                comment.Visible = one && rows[0].Lib != null;
+                if (folder.Visible)
+                {
+                    FillFolderMenu(folder.DropDownItems, libIds, rows.First(r => r.Lib != null).Lib.Dossier);
+                    var libs = rows.Where(r => r.Lib != null).Select(r => r.Lib).ToList();
+                    fav.Checked = libs.All(l => l.Favori);
+                    note.DropDownItems.Clear();
+                    for (int n = 0; n <= 5; n++)
+                    {
+                        int value = n;
+                        note.DropDownItems.Add(MenuItem(n == 0 ? "Aucune" : new string('★', n) + new string('☆', 5 - n),
+                            () => Try(() => { foreach (var id in libIds) Core.SetRating(id, value); }),
+                            libs.All(l => l.Note == value)));
+                    }
+                }
                 delete.Visible = del > 0;
                 delete.Text = del > 1 ? $"Supprimer les {del} packs de la bibliothèque" : "Supprimer de la bibliothèque";
                 bool middle = mods.Visible || folder.Visible;
-                menu.Items[2].Visible = (install.Visible || remove.Visible) && (middle || delete.Visible);
-                menu.Items[7].Visible = middle && delete.Visible;
+                sep1.Visible = (install.Visible || remove.Visible) && (middle || delete.Visible);
+                sep2.Visible = middle && delete.Visible;
             };
             return menu;
         }
@@ -637,12 +688,29 @@ namespace FiveMGfxManager
                 case 0:
                     if (sel) Theme.FillRound(g, new Rectangle(bounds.Left, bounds.Top + (int)(8 * k), (int)(3 * k),
                                                               bounds.Height - (int)(17 * k)), (int)(2 * k), Theme.Accent);
+                    if (r.Lib?.Favori == true)
+                    {
+                        TextRenderer.DrawText(g, "★", nameFont, cell, Theme.Accent, flags);
+                        cell.X += (int)(20 * k);
+                        cell.Width -= (int)(20 * k);
+                    }
                     TextRenderer.DrawText(g, e.SubItem.Text, nameFont, cell, Theme.Fg, flags);
                     break;
                 case 1:
                     Theme.DrawBadge(g, cell, e.SubItem.Text, Theme.TypeColor(e.SubItem.Text), back, smallFont, k);
                     break;
-                case 4:
+                case NoteColumn:
+                    // 5 étoiles, cliquables
+                    if (r.Lib == null) break;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        var star = new Rectangle(cell.X + (int)(i * StarWidth * k), cell.Y, (int)(StarWidth * k), cell.Height);
+                        TextRenderer.DrawText(g, i < r.Lib.Note ? "★" : "☆", smallFont, star,
+                                              i < r.Lib.Note ? Theme.Accent : Theme.Mix(Theme.Muted, Theme.Card, 0.4f),
+                                              TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter | TextFormatFlags.NoPadding);
+                    }
+                    break;
+                case 5:
                     var color = r.Inst != null ? (r.Lib != null ? Theme.Ok : Theme.Accent) : Theme.Muted;
                     int dot = (int)(7 * k);
                     using (var b = new SolidBrush(color))
@@ -695,25 +763,28 @@ namespace FiveMGfxManager
             {
                 ("Taille", detailSize), ("Ajouté le", detailAdded), ("Installé le", detailInstalled),
                 ("Source", detailSource), ("Mods ajoutés", detailMods), ("Dossier", detailFolder),
-                ("Armes", detailWeapons),
+                ("Armes", detailWeapons), ("Note", detailNote), ("Installation", detailPreview),
             })
             {
                 int row = grid.RowCount++;
                 grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                 grid.Controls.Add(new Label
                 {
-                    Text = key, ForeColor = Theme.Muted, AutoSize = false, Width = 100, Height = 28,
+                    Text = key, ForeColor = Theme.Muted, AutoSize = false, Width = 100, Height = 26,
                     TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0),
                 }, 0, row);
                 value.AutoSize = false;
                 value.AutoEllipsis = true;
-                value.Height = 28;
+                value.Height = 26;
                 value.Dock = DockStyle.Fill;
                 value.TextAlign = ContentAlignment.MiddleLeft;
                 value.Margin = new Padding(0);
                 grid.Controls.Add(value, 1, row);
             }
             AddRow(detailBody, grid);
+            detailNote.Cursor = detailPreview.Cursor = Cursors.Hand;
+            detailNote.Click += (s, e) => EditComment();
+            detailPreview.Click += (s, e) => ShowInstallPreview();
 
             detailBody.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             detailBody.Controls.Add(new Panel { Margin = new Padding(0) }, 0, detailBody.RowStyles.Count - 1);
@@ -770,6 +841,7 @@ namespace FiveMGfxManager
             try { if (r.Lib != null) weapons = Core.WeaponNames(Core.PackWeapons(r.Lib)); } catch { }
             detailWeapons.Text = weapons.Count == 0 ? "aucune" : $"{weapons.Count} : {string.Join(", ", weapons)}";
             tips.SetToolTip(detailWeapons, string.Join("\n", weapons));
+            ShowNoteAndPreview(r);
 
             installBtn.Visible = r.Inst == null;
             removeBtn.Visible = r.Inst != null;
@@ -788,8 +860,12 @@ namespace FiveMGfxManager
             detailType.Set(types.Count == 1 ? types[0] : "Plusieurs types", types.Count == 1 ? Theme.TypeColor(types[0]) : Theme.Muted);
             detailState.Set(inst == 0 ? "Aucun installé" : $"{inst} installé{(inst > 1 ? "s" : "")}", inst == 0 ? Theme.Muted : Theme.Ok);
             detailSize.Text = Core.HumanSize(rows.Where(x => x.Lib != null).Sum(x => x.Lib.Taille));
-            detailAdded.Text = detailInstalled.Text = detailMods.Text = detailFolder.Text = detailWeapons.Text = "—";
+            detailAdded.Text = detailInstalled.Text = detailMods.Text = detailFolder.Text = detailWeapons.Text =
+                detailNote.Text = detailPreview.Text = "—";
+            detailPreview.ForeColor = Theme.Fg;
             tips.SetToolTip(detailWeapons, "");
+            tips.SetToolTip(detailNote, "");
+            tips.SetToolTip(detailPreview, "");
             detailSource.Text = names;
             tips.SetToolTip(detailSource, string.Join("\n", rows.Select(x => x.Nom)));
 
@@ -820,43 +896,53 @@ namespace FiveMGfxManager
             if (folderFilter != null && !folders.Contains(folderFilter, StringComparer.OrdinalIgnoreCase))
                 folderFilter = null; // dossier supprimé ou renommé ailleurs
             bool In(PackRow r, string d) => string.Equals(r.Lib?.Dossier ?? "", d ?? "", StringComparison.OrdinalIgnoreCase);
+            bool Under(PackRow r, string d) => Core.IsInFolder(r.Lib?.Dossier, d);
             var view = all.Where(r => (r.Type == Core.ModType) == ModsView).ToList();
-            rows = view.Where(r => In(r, folderFilter)).ToList();
-            // dossiers en tête de la liste ; dans un dossier, une ligne « Retour »
             var entries = new List<PackRow>();
-            if (folderFilter != null) entries.Add(new PackRow { Up = true });
+            if (Searching)
+            {
+                // recherche : tous les packs qui correspondent, sans les dossiers
+                string q = searchInput.Box.Text.Trim();
+                bool Has(string s) => s != null && s.IndexOf(q, StringComparison.CurrentCultureIgnoreCase) >= 0;
+                rows = view.Where(r => Has(r.Nom) || Has(r.Type) || Has(r.Lib?.Dossier) || Has(r.Lib?.Commentaire)).ToList();
+            }
             else
-                foreach (var d in folders)
+            {
+                rows = view.Where(r => In(r, folderFilter)).ToList();
+                // sous-dossiers en tête de la liste ; dans un dossier, une ligne « Retour »
+                if (folderFilter != null) entries.Add(new PackRow { Up = true });
+                foreach (var d in folders.Where(d => string.Equals(Core.ParentFolder(d), folderFilter, StringComparison.OrdinalIgnoreCase)))
                 {
                     // un dossier qui ne contient que des mods n'apparaît pas dans les packs (et inversement)
-                    if (!view.Any(r => In(r, d)) && all.Any(r => In(r, d))) continue;
+                    if (!view.Any(r => Under(r, d)) && all.Any(r => Under(r, d))) continue;
                     entries.Add(new PackRow { Folder = d });
                 }
-            entries.AddRange(rows);
-            folderBtn.Text = folderFilter == null ? "Nouveau dossier…" : "Retour";
-            folderBtn.Glyph = folderFilter == null ? Glyph.Folder : Glyph.Back;
-            folderBtn.Invalidate();
+            }
+            entries.AddRange(Sorted(rows));
             ShowFolderTitle();
 
             packList.BeginUpdate();
             packList.Items.Clear();
             foreach (var r in entries)
             {
-                int n = r.Folder != null ? view.Count(x => In(x, r.Folder)) : 0;
+                int n = r.Folder != null ? view.Count(x => Under(x, r.Folder)) : 0;
                 var item = new ListViewItem(!r.IsPack
-                    ? new[] { r.Nom, "", "", "", r.Up ? "" : n == 0 ? "vide" : $"{n} {Noun}{(n > 1 ? "s" : "")}" }
+                    ? new[] { r.Nom, "", "", "", "", r.Up ? "" : n == 0 ? "vide" : $"{n} {Noun}{(n > 1 ? "s" : "")}" }
                     : new[]
                     {
                         r.Nom,
                         r.Type,
                         r.Lib != null ? Core.HumanSize(r.Lib.Taille) : "",
                         r.Lib?.Mods != null && r.Lib.Mods.Count > 0 ? r.Lib.Mods.Count.ToString() : "",
+                        "",
                         r.Inst == null ? "Bibliothèque" : r.Lib == null ? "Installé (hors bibl.)" : "Installé",
                     })
                 { Tag = r };
                 var tip = new List<string>();
-                if (r.Up) tip.Add("Double-clic (ou Retour arrière) pour revenir à la liste");
+                if (r.Up) tip.Add("Double-clic (ou Retour arrière) pour remonter d'un dossier");
                 if (r.Folder != null) tip.Add("Double-clic pour ouvrir · glisse des " + Noun + "s dessus pour les ranger");
+                if (Searching && !string.IsNullOrEmpty(r.Lib?.Dossier)) tip.Add("Dossier : " + r.Lib.Dossier.Replace("/", " › "));
+                if (!string.IsNullOrEmpty(r.Lib?.Commentaire)) tip.Add("Commentaire : " + r.Lib.Commentaire);
                 if (r.Lib?.Mods != null && r.Lib.Mods.Count > 0) tip.Add("Mods ajoutés : " + string.Join(", ", r.Lib.Mods));
                 if (r.Lib?.Armes != null && r.Lib.Armes.Count > 0) tip.Add("Armes : " + string.Join(", ", Core.WeaponNames(r.Lib.Armes)));
                 item.ToolTipText = string.Join("\n", tip);
@@ -865,6 +951,8 @@ namespace FiveMGfxManager
             }
             packList.EndUpdate();
             FitColumns();
+            emptyList.Text = Searching ? $"Aucun {Noun} ne correspond à « {searchInput.Box.Text.Trim()} »."
+                           : ModsView ? EmptyMods : EmptyPacks;
             emptyList.Visible = entries.Count == 0;
             if (emptyList.Visible) emptyList.BringToFront();
             ShowDetails();
@@ -1327,6 +1415,7 @@ namespace FiveMGfxManager
             }
             string fivem = FivemPath();
             if (fivem == null || !FivemClosed()) return;
+            if (!ConfirmSuspects(r.Lib)) return;
 
             var steps = new List<Action<Action<string>, Action<double>>>();
             if (!Core.HasOriginalBackup() &&
@@ -1511,7 +1600,7 @@ namespace FiveMGfxManager
             foreach (var d in Core.LibraryFolders())
             {
                 string folder = d;
-                items.Add(MenuItem(d, () => Try(() => Core.MoveToFolder(ids, folder)),
+                items.Add(MenuItem(d.Replace("/", "  ›  "), () => Try(() => Core.MoveToFolder(ids, folder)),
                                    string.Equals(d, current, StringComparison.OrdinalIgnoreCase)));
             }
             if (items.Count > 0) items.Add(new ToolStripSeparator());
@@ -1530,38 +1619,58 @@ namespace FiveMGfxManager
             string from = folderFilter;
             folderFilter = folder;
             packList.SelectedItems.Clear();
-            RefreshPackList();
+            if (Searching) searchInput.Box.Text = ""; // rafraîchit aussi la liste
+            else RefreshPackList();
             // en remontant, le dossier qu'on vient de quitter reste sélectionné
-            var back = packList.Items.Cast<ListViewItem>().FirstOrDefault(i => folder == null && ((PackRow)i.Tag).Folder == from);
+            var back = packList.Items.Cast<ListViewItem>().FirstOrDefault(i => from != null && ((PackRow)i.Tag).Folder == from);
             if (back != null) { back.Selected = back.Focused = true; back.EnsureVisible(); }
             packList.Focus();
         }
 
+        // Nom d'un dossier sans « / » ni « \ » (ils servent aux sous-dossiers), null si annulé
+        string AskFolderLeaf(string title, string value)
+        {
+            while (true)
+            {
+                string name = AskText(title, "Nom du dossier :", value);
+                if (name == null) return null;
+                if (name.IndexOfAny(new[] { '/', '\\' }) < 0) return name.Trim();
+                Info(title, "Le nom ne peut pas contenir / ou \\.");
+                value = name;
+            }
+        }
+
+        // nouveau dossier dans le dossier ouvert
         void AskNewFolder()
         {
-            string name = AskText("Nouveau dossier", "Nom du dossier :", "");
-            if (name != null) Try(() => Core.CreateFolder(name));
+            string name = AskFolderLeaf(folderFilter == null ? "Nouveau dossier" : $"Nouveau dossier dans « {Core.FolderLeaf(folderFilter)} »", "");
+            if (name != null) Try(() => Core.CreateFolder(folderFilter == null ? name : folderFilter + "/" + name));
         }
 
         void AskRenameFolder(string cur)
         {
-            string name = AskText("Renommer le dossier", "Nouveau nom :", cur);
-            if (name == null || name == cur) return;
+            string leaf = AskFolderLeaf("Renommer le dossier", Core.FolderLeaf(cur));
+            if (leaf == null || leaf == Core.FolderLeaf(cur)) return;
+            string parent = Core.ParentFolder(cur);
+            string name = parent == null ? leaf : parent + "/" + leaf;
             Try(() =>
             {
                 Core.RenameFolder(cur, name);
-                if (string.Equals(folderFilter, cur, StringComparison.OrdinalIgnoreCase)) folderFilter = name;
+                if (Core.IsInFolder(folderFilter, cur)) folderFilter = name + folderFilter.Substring(cur.Length);
             });
         }
 
         void AskDeleteFolder(string cur)
         {
-            if (!Ask("Supprimer le dossier", $"Supprimer le dossier « {cur} » ?\n(ses " + Noun + "s restent dans la bibliothèque, hors dossier)"))
+            string parent = Core.ParentFolder(cur);
+            string where = parent == null ? "hors dossier" : $"rangés dans « {Core.FolderLeaf(parent)} »";
+            if (!Ask("Supprimer le dossier", $"Supprimer le dossier « {Core.FolderLeaf(cur)} » et ses sous-dossiers ?\n" +
+                                             $"(ses {Noun}s restent dans la bibliothèque, {where})"))
                 return;
             Try(() =>
             {
                 Core.DeleteFolder(cur);
-                if (string.Equals(folderFilter, cur, StringComparison.OrdinalIgnoreCase)) folderFilter = null;
+                if (Core.IsInFolder(folderFilter, cur)) folderFilter = parent;
             });
         }
 

@@ -322,6 +322,40 @@ class T {
     Core.RestoreGraphics(log);
     Directory.Delete(pl,true);
 
+    // --- sous-dossiers, notes, fichiers suspects, apercu, verification, annulation ---
+    Core.CreateFolder("Jour"); Core.CreateFolder("Jour/Soleil");
+    Core.MoveToFolder(new[]{lp.Id},"Jour/Soleil");
+    Core.RenameFolder("Jour","Matin");
+    Check(Core.LibraryFolders().Contains("Matin/Soleil") && Core.ListLibrary().First(p=>p.Id==lp.Id).Dossier=="Matin/Soleil", "sous-dossier renomme avec son parent");
+    Core.DeleteFolder("Matin/Soleil");
+    Check(Core.ListLibrary().First(p=>p.Id==lp.Id).Dossier=="Matin" && !Core.LibraryFolders().Contains("Matin/Soleil"), "sous-dossier supprime : packs dans le parent");
+    Core.DeleteFolder("Matin");
+    Check(Core.ListLibrary().First(p=>p.Id==lp.Id).Dossier==null && !Core.LibraryFolders().Contains("Matin"), "dossier supprime");
+    Core.SetFavorite(new[]{lp.Id},true); Core.SetRating(lp.Id,4); Core.SetComment(lp.Id,"top");
+    var lq=Core.ListLibrary().First(p=>p.Id==lp.Id);
+    Check(lq.Favori && lq.Note==4 && lq.Commentaire=="top", "favori, note et commentaire");
+    Directory.CreateDirectory(S+"/sus/plugins");
+    foreach(var f in new[]{"dxgi.dll","hack.exe","x.dll","lisez.txt"}) File.WriteAllText(S+"/sus/plugins/"+f,"x");
+    var sus=Core.SuspiciousFiles(S+"/sus");
+    Check(sus.Count==2 && !sus.Any(f=>f.EndsWith("dxgi.dll")), "fichiers suspects (.exe, .dll inconnue ; dxgi.dll ignore)");
+    var pv=Core.PreviewInstall(lp.Id,app);
+    Check(pv.Nouveaux.Count+pv.Remplaces.Count>0 && pv.Suspects.Count==0, "apercu de l'installation ("+pv.Remplaces.Count+" remplaces, "+pv.Nouveaux.Count+" nouveaux)");
+    var rel=pv.Remplaces.Concat(pv.Nouveaux).First(f=>!new[]{".ini",".txt",".cfg",".json",".log"}.Contains(Path.GetExtension(f).ToLowerInvariant()));
+    Core.InstallLibraryPack(lp.Id,app,log,pr);
+    string good=R(app+"/"+rel);
+    Check(Core.CheckInstalledPacks(app).Count==0, "packs installes intacts");
+    File.WriteAllText(app+"/"+rel,"remis par une mise a jour du jeu");
+    var dmg=Core.CheckInstalledPacks(app);
+    Check(dmg.Count==1 && dmg[0].Modifies.Single()==rel, "fichier remis d'origine detecte");
+    Core.RepairPack(dmg[0].Pack.Id,app,log);
+    Check(R(app+"/"+rel)==good && Core.CheckInstalledPacks(app).Count==0, "pack repare");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    var last=Core.LastUndoable();
+    Check(last!=null && last.Type=="retrait", "derniere action annulable : le retrait");
+    Core.UndoHistory(last.Id,app,log,pr);
+    Check(Core.IsInstalled(lp.Id) && Core.LastUndoable()?.Id!=last.Id, "retrait annule (pack reinstalle, l'annulation remonte l'historique)");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+
     // ancienne config (un seul pack) convertie
     File.WriteAllText(S+"/appdata/config.json","{\"PackInstalle\":{\"Date\":\"d\",\"Id\":\"old\",\"Nom\":\"Vieux\"}}");
     Check(Core.InstalledPacks().Single().Nom=="Vieux", "ancienne config convertie");

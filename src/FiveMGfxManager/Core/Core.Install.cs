@@ -45,6 +45,7 @@ namespace FiveMGfxManager
             }
             if (m.Deplaces.Count > 0) WriteJson(ManifestPath(m.Id), m);
             ShareWeapons(m, id, fivemApp, keepOld, log);
+            SnapshotSizes(fivemApp);
             RecordInstall($"Installé : {pack.Nom}", m.Id);
             return m;
         }
@@ -70,6 +71,7 @@ namespace FiveMGfxManager
             var m = WithTempDir(work =>
                 InstallContent(StageSource(source, work, log, p => progress(p * 0.5)), SourceName(source), type, null,
                                source, fivemApp, log, p => progress(0.5 + p * 0.5)));
+            SnapshotSizes(fivemApp);
             RecordInstall($"Installé : {m.Nom}", m.Id);
             return m;
         }
@@ -247,6 +249,7 @@ namespace FiveMGfxManager
             SaveConfig(cfg);
             GiveBackWeapons(packId, fivemApp, log);
             log($"Pack retiré : {manifest.Ajoutes.Count} fichiers supprimés, {manifest.Remplaces.Count} fichiers d'origine remis.");
+            SnapshotSizes(fivemApp);
             RecordRemoval($"Retiré : {info.Nom}", info.LibId);
         }
 

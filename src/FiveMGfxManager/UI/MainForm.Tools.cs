@@ -77,6 +77,7 @@ namespace FiveMGfxManager
             profileList.DoubleClick += (s, e) => { if (!busy) ApplyProfile(); };
             var btns = ButtonBar();
             btns.Controls.Add(Btn("Appliquer le profil", ApplyProfile, ButtonKind.Primary, Glyph.Play));
+            btns.Controls.Add(Btn("Appliquer et lancer FiveM", ApplyProfileAndLaunch, ButtonKind.Secondary, Glyph.Play));
             btns.Controls.Add(Btn("Enregistrer la config actuelle…", SaveProfile, ButtonKind.Secondary, Glyph.Save));
             btns.Controls.Add(Btn("Supprimer", DeleteProfile, ButtonKind.Danger, Glyph.Delete));
             AddRow(page, btns);

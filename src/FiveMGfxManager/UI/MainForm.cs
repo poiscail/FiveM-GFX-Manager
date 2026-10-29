@@ -210,8 +210,9 @@ namespace FiveMGfxManager
             side.Controls.Add(new Panel { Margin = new Padding(0) }, 0, side.RowStyles.Count - 1);
 
             AddRow(side, Caption("OUTILS", new Padding(6, 0, 0, 6)));
-            FlatButton launch = null, tools = null;
-            launch = SideBtn("Lancer FiveM", Glyph.Play, () => ShowLaunchMenu(launch));
+            FlatButton tools = null;
+            var launch = SideBtn("Lancer FiveM", Glyph.Play, LaunchFivem);
+            tips.SetToolTip(launch, "Ouvre Steam s'il est fermé (et attend qu'il soit connecté), puis FiveM");
             tools = SideBtn("Outils…", Glyph.Clear, () => ShowToolsMenu(tools));
             var undo = SideBtn("Annuler la dernière action", Glyph.History, UndoLast);
             tips.SetToolTip(undo, "Ctrl+Z");

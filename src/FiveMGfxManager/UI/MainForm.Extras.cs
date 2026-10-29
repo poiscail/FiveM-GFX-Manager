@@ -265,23 +265,10 @@ namespace FiveMGfxManager
         ContextMenuStrip DarkMenu() =>
             new ContextMenuStrip { Renderer = new DarkMenuRenderer(), ShowImageMargin = false, BackColor = Theme.Card, ForeColor = Theme.Fg };
 
-        void ShowLaunchMenu(FlatButton b)
-        {
-            var menu = DarkMenu();
-            menu.Items.Add(MenuItem("Lancer FiveM", LaunchFivem));
-            var profiles = Core.ListProfiles();
-            if (profiles.Count > 0) menu.Items.Add(new ToolStripSeparator());
-            foreach (var pr in profiles)
-            {
-                string name = pr.Nom;
-                menu.Items.Add(MenuItem($"Appliquer « {name} » puis lancer", () => LaunchWithProfile(name)));
-            }
-            menu.Closed += (s, e) => BeginInvoke((Action)menu.Dispose);
-            menu.Show(b, 0, b.Height);
-        }
-
+        // Lance Steam (si besoin, et attend qu'il soit connecté) puis FiveM
         void LaunchFivem()
         {
+            if (busy) return;
             if (Core.IsFivemRunning())
             {
                 Info("Lancer FiveM", "FiveM est déjà ouvert.");
@@ -289,17 +276,14 @@ namespace FiveMGfxManager
             }
             string fivem = FivemPath();
             if (fivem == null) return;
-            try
-            {
-                Core.LaunchFivem(fivem);
-                Log("FiveM lancé.");
-            }
-            catch (Exception ex) { Info("Lancer FiveM", ex.Message); }
+            RunTask((log, p) => Core.LaunchFivem(fivem, log));
         }
 
-        void LaunchWithProfile(string name)
+        // Page Profils : applique le profil sélectionné puis lance FiveM
+        void ApplyProfileAndLaunch()
         {
-            string fivem = FivemPath();
+            string name = SelectedProfile();
+            string fivem = name == null ? null : FivemPath();
             if (fivem == null || !FivemClosed()) return;
             if (!Core.HasOriginalBackup() &&
                 !Ask("Sauvegarde d'origine", "Aucune sauvegarde d'origine n'existe. Appliquer le profil quand même ?"))
@@ -307,8 +291,7 @@ namespace FiveMGfxManager
             RunTask((log, p) =>
             {
                 Core.ApplyProfile(name, fivem, log, p);
-                Core.LaunchFivem(fivem);
-                log("FiveM lancé.");
+                Core.LaunchFivem(fivem, log);
             });
         }
 

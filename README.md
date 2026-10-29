@@ -51,7 +51,8 @@ Logiciel Windows (aucune installation nécessaire) pour :
   (`.exe`, scripts, `.dll` autres que ReShade/ENB) avant d'installer ;
 - **vérification après une mise à jour de FiveM / GTA V** : au démarrage, les fichiers des packs
   installés remis d'origine sont détectés et remis d'un clic (Outils → Vérifier les packs installés) ;
-- **Lancer FiveM**, directement ou après avoir appliqué un profil ;
+- **Lancer FiveM** : ouvre Steam s'il est fermé et attend qu'il soit connecté, puis lance FiveM
+  (onglet Profils : « Appliquer et lancer FiveM ») ;
 - **Annuler la dernière action** (Ctrl+Z) ;
 - **exporter / importer** la bibliothèque, les profils et les réglages (Outils) ;
 - **mise à jour automatique** : une nouvelle version publiée sur GitHub est proposée et installée d'un clic.

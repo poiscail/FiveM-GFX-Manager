@@ -67,7 +67,8 @@ UTILISATION CONSEILLEE
    - Clic droit -> "Apercu de l'installation..." : fichiers remplaces, nouveaux
      fichiers, conflits. Avant d'installer, le logiciel previent si le pack contient
      des programmes ou des scripts (.exe, .bat, .dll inconnue...).
-10. Bouton "Lancer FiveM" : lance FiveM, ou applique d'abord un profil puis lance.
+10. Bouton "Lancer FiveM" : ouvre Steam s'il est ferme (et attend qu'il soit connecte),
+    puis lance FiveM. Onglet "Profils" -> "Appliquer et lancer FiveM".
 11. "Annuler la derniere action" (ou Ctrl+Z) : annule la derniere installation,
     le dernier retrait ou la derniere modification de fichier.
 12. "Outils..." :

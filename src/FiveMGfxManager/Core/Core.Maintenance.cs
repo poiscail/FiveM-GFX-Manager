@@ -187,11 +187,92 @@ namespace FiveMGfxManager
         //  Lancer FiveM
         // ------------------------------------------------------------------ //
 
-        public static void LaunchFivem(string fivemApp)
+        public static string FivemExe(string fivemApp) =>
+            Path.Combine(Path.GetDirectoryName(Path.GetFullPath(fivemApp).TrimEnd('\\', '/')) ?? "", "FiveM.exe");
+
+        // Lance Steam s'il n'est pas ouvert (FiveM en a besoin pour GTA V), puis FiveM
+        public static void LaunchFivem(string fivemApp, Action<string> log)
         {
-            string exe = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(fivemApp).TrimEnd('\\', '/')) ?? "", "FiveM.exe");
+            string exe = FivemExe(fivemApp);
             if (!File.Exists(exe)) throw new GfxException("FiveM.exe introuvable à côté de FiveM.app :\n" + exe);
-            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
+            StartSteam(log);
+            log("Lancement de FiveM…");
+            // lancé par l'Explorateur, comme un double-clic : FiveM ne dépend pas de ce logiciel
+            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + exe + "\"") { UseShellExecute = false });
+            for (int i = 0; i < 40 && !IsFivemRunning(); i++) System.Threading.Thread.Sleep(500);
+            if (!IsFivemRunning())
+            {
+                log("  l'Explorateur n'a pas lancé FiveM, nouvel essai direct…");
+                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(exe) });
+                for (int i = 0; i < 40 && !IsFivemRunning(); i++) System.Threading.Thread.Sleep(500);
+            }
+            if (!IsFivemRunning()) throw new GfxException("FiveM ne s'est pas lancé :\n" + exe);
+            log("FiveM lancé.");
+        }
+
+        static string SteamExe()
+        {
+            foreach (var (root, key, value) in new[]
+            {
+                (Microsoft.Win32.Registry.CurrentUser, @"Software\Valve\Steam", "SteamExe"),
+                (Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+                (Microsoft.Win32.Registry.LocalMachine, @"SOFTWARE\Valve\Steam", "InstallPath"),
+            })
+            {
+                try
+                {
+                    using (var k = root.OpenSubKey(key))
+                    {
+                        string v = k?.GetValue(value) as string;
+                        if (string.IsNullOrEmpty(v)) continue;
+                        v = v.Replace('/', '\\');
+                        if (!v.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) v = Path.Combine(v, "steam.exe");
+                        if (File.Exists(v)) return v;
+                    }
+                }
+                catch { }
+            }
+            string def = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam", "steam.exe");
+            return File.Exists(def) ? def : null;
+        }
+
+        static bool SteamRunning() => Process.GetProcessesByName("steam").Length > 0;
+
+        // Compte Steam connecté (0 tant que Steam démarre ou n'est pas connecté)
+        static int SteamUser()
+        {
+            try
+            {
+                using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam\ActiveProcess"))
+                    return k?.GetValue("ActiveUser") is int u ? u : 0;
+            }
+            catch { return 0; }
+        }
+
+        static void StartSteam(Action<string> log)
+        {
+            if (SteamRunning() && SteamUser() != 0) return;
+            if (!SteamRunning())
+            {
+                string steam = SteamExe();
+                if (steam == null)
+                {
+                    log("  Steam introuvable : FiveM est lancé sans lui (version Rockstar / Epic de GTA V ?).");
+                    return;
+                }
+                log("Lancement de Steam…");
+                Process.Start(new ProcessStartInfo(steam) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(steam) });
+            }
+            log("Attente de la connexion à Steam…");
+            // jusqu'à 2 minutes (mise à jour de Steam, mot de passe à taper…)
+            for (int i = 0; i < 240 && SteamUser() == 0; i++) System.Threading.Thread.Sleep(500);
+            if (SteamUser() == 0)
+            {
+                log("  Steam n'est pas connecté : FiveM est lancé quand même.");
+                return;
+            }
+            System.Threading.Thread.Sleep(3000); // laisse Steam finir de démarrer
+            log("Steam prêt.");
         }
 
     }

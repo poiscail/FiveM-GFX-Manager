@@ -1,4 +1,4 @@
-# FiveM GFX Manager — contexte du projet
+﻿# FiveM GFX Manager — contexte du projet
 
 Ce fichier résume tout ce qui a été fait sur ce projet (conversation avec Claude, 28/10/2026),
 pour pouvoir continuer le travail en local. Langue du projet et de l'utilisateur : **français**.
@@ -55,7 +55,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (142 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (143 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement
@@ -170,7 +170,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   depuis un dossier ; restauration d'origine ; vrai téléchargement de ReShade 6.8.0 (dll de 5,2 Mo) ;
   shaders (archive locale simulée) ; désinstallation de ReShade qui remet le dll du pack ; cache ;
   refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, `.rpf` seuls rangés à
-  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.awc` bruts, `.ydr`/`.ytd` mis dans un paquet FiveM lisible, `.rpf` sans assembly.xml enveloppé, pack multi-armes (zip dans le zip, doublons), variantes refusées, chemin OpenIV en dossiers, 3 packs
+  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.awc` bruts, `.ydr`/`.ytd` mis dans un paquet FiveM lisible, `.rpf` sans assembly.xml enveloppé, pack multi-armes (zip dans le zip, doublons), variantes (une gardée en entier, refus si ambigu), chemin OpenIV en dossiers, 3 packs
   installés ensemble, ajout de mods sans doublon, changement de type, suppression, retrait complet
   propre) ; sons d'armes trouvés avant install (sous-dossier de mods, dans un .rpf, GTA V\mods), mis de côté puis remis ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres, et ReShade désinstallé
   pendant qu'un pack est installé par-dessus) ; `.rpf` seuls rangés grâce à un faux dossier GTA V

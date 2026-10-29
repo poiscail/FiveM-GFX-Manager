@@ -325,6 +325,27 @@ namespace FiveMGfxManager
             // Pack de plusieurs armes : tous dans le même paquet ; un même fichier présent deux fois n'est gardé qu'une fois.
             if (streamed.Count > 0)
             {
+                // variantes (Glow / Regular, Variant 1 / Variant 2…) : FiveM n'en charge qu'une, on garde une variante entière
+                for (;;)
+                {
+                    var clash = streamed.GroupBy(f => Path.GetFileName(f).ToLowerInvariant())
+                                        .Select(g => g.Where((f, i) => !g.Take(i).Any(o => SameContent(o, f))).ToList())
+                                        .FirstOrDefault(v => v.Count > 1);
+                    if (clash == null) break;
+                    var segs = clash.Select(f => RelPath(folder, f).Split('/').Reverse().Skip(1).Reverse().ToArray()).ToList();
+                    int common = 0;
+                    while (segs.All(s => s.Length > common && s[common].Equals(segs[0][common], StringComparison.OrdinalIgnoreCase))) common++;
+                    if (segs.Any(s => s.Length == common)) break; // une version dans le dossier parent des autres : refus plus bas
+                    var roots = segs.Select(s => string.Join("\\", s.Take(common + 1))).Distinct(StringComparer.OrdinalIgnoreCase)
+                                    .OrderBy(r => Regex.IsMatch(r.Substring(r.LastIndexOf('\\') + 1), "regular|normal|default|standard|original|base",
+                                                                RegexOptions.IgnoreCase) ? 0 : 1)
+                                    .ThenBy(r => r, StringComparer.OrdinalIgnoreCase).ToList();
+                    streamed = streamed.Where(f => !roots.Skip(1).Any(r => RelPath(folder, f).Replace('/', '\\')
+                                                        .StartsWith(r + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
+                    log($"Plusieurs variantes dans le pack : « {roots[0]} » gardée, " +
+                        string.Join(", ", roots.Skip(1).Select(r => $"« {r} »")) + " ignorée(s).\n" +
+                        "  Pour une autre variante, ajoute seulement son dossier (« Ajouter un dossier… »).");
+                }
                 var kept = new List<string>();
                 foreach (var g in streamed.GroupBy(f => Path.GetFileName(f).ToLowerInvariant()))
                 {

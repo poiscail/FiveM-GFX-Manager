@@ -131,10 +131,18 @@ class T {
       var em=Core.ReadRpfEntries(pkm)?.Select(x=>x.Path).ToList();
       Check(em!=null && em.Contains("content/w_pi_pistol.ydr") && em.Contains("content/w_ar_carbinerifle.ytd") && em.Count(x=>x=="content/w_commun.ytd")==1, "pack de plusieurs armes (archives dans l'archive) dans un seul paquet");
       Core.DeleteFromLibrary(mp.Id,log);
-      // deux versions differentes du meme fichier : refus qui nomme les dossiers
-      Directory.CreateDirectory(S+"/variantes/Or"); Directory.CreateDirectory(S+"/variantes/Noir");
-      File.WriteAllBytes(S+"/variantes/Or/w_pi_pistol.ytd",Rsc("OR")); File.WriteAllBytes(S+"/variantes/Noir/w_pi_pistol.ytd",Rsc("NOIR"));
-      try { Core.ImportPack(S+"/variantes","Armes",log,pr); Check(false,"variantes"); } catch(GfxException e){ Check(e.Message.Contains("Or") && e.Message.Contains("Noir"), "deux versions d'une arme refusees en nommant les dossiers"); }
+      // variantes (Glow / Regular, Variant 1 / 2) : une variante entiere gardee, les autres ignorees
+      foreach (var (d,f,c) in new[]{("Files/Glow/Replace","a.ytd","GA"),("Files/Glow/Replace","b.ydr","GB"),("Files/Glow/Replace","glow.ytd","GL"),
+                                    ("Files/Regular/Replace","a.ytd","RA"),("Files/Regular/Replace","b.ydr","RB"),
+                                    ("Grips/Variant 1","g.ydr","G1"),("Grips/Variant 2","g.ydr","G2"),("Grips/Variant 2","x.ytd","X2")})
+      { Directory.CreateDirectory(S+"/variantes/"+d); File.WriteAllBytes(S+"/variantes/"+d+"/"+f,Rsc(c)); }
+      var vp=Core.ImportPack(S+"/variantes","Armes",log,pr);
+      var ve=Core.ReadRpfEntries(Directory.GetFiles(S+"/appdata/bibliotheque/"+vp.Id+"/contenu/mods","*.rpf")[0])?.Select(x=>x.Path).Where(x=>x.StartsWith("content/")).OrderBy(x=>x).ToList();
+      Check(ve!=null && ve.SequenceEqual(new[]{"content/a.ytd","content/b.ydr","content/g.ydr"}), "variantes : Regular et Variant 1 gardees en entier ("+string.Join(",",ve??new System.Collections.Generic.List<string>())+")");
+      Core.DeleteFromLibrary(vp.Id,log);
+      // une version dans le dossier parent d'une autre : refus qui nomme les dossiers
+      Directory.CreateDirectory(S+"/variantes2/Or"); File.WriteAllBytes(S+"/variantes2/w_pi_pistol.ytd",Rsc("NOIR")); File.WriteAllBytes(S+"/variantes2/Or/w_pi_pistol.ytd",Rsc("OR"));
+      try { Core.ImportPack(S+"/variantes2","Armes",log,pr); Check(false,"variantes"); } catch(GfxException e){ Check(e.Message.Contains("Or") && e.Message.Contains("(racine)"), "deux versions d'une arme sans variante claire refusees en nommant les dossiers"); }
       // chemin OpenIV en dossiers : mods\update\...\dlc.rpf\x64\models\cdimages\weapons.rpf\*.ydr
       string ov=S+"/openiv/mods/update/x64/dlcpacks/patchday8ng/dlc.rpf/x64/models/cdimages/weapons.rpf";
       Directory.CreateDirectory(ov); File.WriteAllBytes(ov+"/w_sb_smg.ydr",Rsc("SMG"));

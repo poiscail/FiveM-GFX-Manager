@@ -120,7 +120,7 @@ namespace FiveMGfxManager
             pages.Add(new Page
             {
                 Title = "QuantV", Body = BuildQuantVPage(),
-                Subtitle = "Met à jour QuantV dans tes packs avec une nouvelle version (archive, dossier ou .rpf).",
+                Subtitle = "Met à jour QuantV dans tes packs : tout seul depuis Téléchargements, ou avec une archive, un dossier ou un .rpf.",
                 Nav = new FlatButton("QuantV", Glyph.Update, ButtonKind.Nav),
             });
             pages.Add(new Page
@@ -1149,7 +1149,11 @@ namespace FiveMGfxManager
             AddRow(page, card);
 
             var btns = ButtonBar();
-            btns.Controls.Add(Btn("Mettre à jour avec une archive…", UpdateQuantVFile, ButtonKind.Primary, Glyph.Update));
+            var auto = Btn("Chercher la nouvelle version", UpdateQuantVAuto, ButtonKind.Primary, Glyph.Search);
+            tips.SetToolTip(auto, "Prend tout seul la dernière version de QuantV arrivée dans ton dossier Téléchargements\n" +
+                                  "et met à jour tes packs avec.");
+            btns.Controls.Add(auto);
+            btns.Controls.Add(Btn("Avec une archive…", UpdateQuantVFile, ButtonKind.Secondary, Glyph.Update));
             btns.Controls.Add(Btn("Avec un dossier…", UpdateQuantVFolder, ButtonKind.Secondary, Glyph.Folder));
             AddRow(page, btns);
 
@@ -1209,6 +1213,10 @@ namespace FiveMGfxManager
                 quantvCard.Set(Glyph.Check, Theme.Ok, $"QuantV trouvé dans {qv.Count} pack{(qv.Count > 1 ? "s" : "")}",
                                (qv.Any(q => q.Installe) ? "Installé dans FiveM" : "Pas installé dans FiveM") +
                                (last != default(DateTime) ? $"  ·  version du {last:dd/MM/yyyy}" : ""));
+                string nouv = Core.FindQuantVDownload();
+                if (nouv != null)
+                    quantvCard.Set(Glyph.Download, Theme.Accent, "Nouvelle version de QuantV dans Téléchargements",
+                                   $"{Path.GetFileName(nouv)}  ·  clique sur « Chercher la nouvelle version » pour l'installer.");
                 quantvList.Text = string.Join("\n", qv.Select(q =>
                     $"•  {q.Pack.Nom}{(q.Installe ? "  (installé)" : "")}  —  {q.Fichiers.Count} fichiers QuantV" +
                     (q.Rpf != null ? $", {q.Rpf.Replace('/', '\\')}" : "")));
@@ -1782,6 +1790,18 @@ namespace FiveMGfxManager
                 RunTask((log, p) => { foreach (var id in ids) Core.DeleteFromLibrary(id, log); });
         }
 
+        void UpdateQuantVAuto()
+        {
+            if (busy) return;
+            string f = Core.FindQuantVDownload();
+            if (f != null) { UpdateQuantV(f); return; }
+            if (Ask("QuantV", "Aucune nouvelle version de QuantV dans ton dossier Téléchargements.\n\n" +
+                              "QuantV est payant : le logiciel ne peut pas le télécharger à ta place. Télécharge la dernière " +
+                              "version (Patreon / Discord de QuantV) dans Téléchargements, puis reclique sur ce bouton :\n" +
+                              "tout le reste se fait tout seul.\n\nOuvrir la page Patreon de QuantV ?"))
+                Process.Start("https://www.patreon.com/QuantV");
+        }
+
         void UpdateQuantVFile()
         {
             var f = PickFile("Nouvelle version de QuantV", PackFilter);
@@ -1881,13 +1901,8 @@ namespace FiveMGfxManager
                 Info("ReShade", "ReShade n'est pas installé : utilise « Installer ReShade ».");
                 return;
             }
-            string setup = Clean(reshadeBox.Text);
-            if (setup != "" && !File.Exists(setup))
-            {
-                MessageBox.Show(this, setup, "Fichier introuvable", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            RunTask((log, p) => Core.UpdateReshade(fivem, setup == "" ? null : setup, log, p));
+            // toujours la dernière version de reshade.me (le fichier choisi à la main sert à « Installer ReShade »)
+            RunTask((log, p) => Core.UpdateReshade(fivem, null, log, p));
         }
 
         void UninstallReshade()

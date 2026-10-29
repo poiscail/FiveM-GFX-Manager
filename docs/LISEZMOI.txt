@@ -49,6 +49,9 @@ UTILISATION CONSEILLEE
    deposer) et il remplace les fichiers QuantV du pack. Si le pack est installe, il est
    reinstalle tout seul. Tes reglages (.ini) sont gardes, l'ancienne version est sauvegardee
    dans %APPDATA%\FiveMGfxManager\quantv.
+   Le plus simple : telecharge la nouvelle version de QuantV (Patreon / Discord, il est payant)
+   dans ton dossier Telechargements, puis clique "Chercher la nouvelle version" : le logiciel
+   la trouve et fait la mise a jour tout seul.
 6. Onglet "Graphismes" (FiveM ferme) : Performance, Equilibre ou Qualite regle les options
    graphiques du jeu d'un clic. Tes reglages d'origine sont sauvegardes la premiere fois :
    "Remettre mes reglages d'origine" les remet.

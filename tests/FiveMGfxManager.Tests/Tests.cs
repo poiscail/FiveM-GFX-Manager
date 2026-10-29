@@ -33,7 +33,7 @@ class T {
     var dll=new FileInfo(app+"/plugins/dxgi.dll"); Check(dll.Length>1000000, "ReShade dxgi.dll ("+dll.Length+" o)");
     Check(Directory.EnumerateFiles(app+"/plugins/reshade-shaders/Shaders","*.fx",SearchOption.AllDirectories).Count()>=5 && File.Exists(app+"/plugins/reshade-shaders/Shaders/ReShade.fxh"), "shaders installes"); // la branche slim n'a que 5 .fx
     Console.WriteLine(File.ReadAllText(app+"/plugins/ReShade.ini"));
-    var rsv=Core.ReshadeDllVersion(app); Check(Version.TryParse(rsv??"",out _) && Core.ReshadeStatus().Version==rsv, "version de ReShade lue dans le dll ("+rsv+")");
+    var rsv=Core.ReshadeDllVersion(app); W(S+"/rspack/plugins/ReShade.ini","[GENERAL]"); File.Copy(app+"/plugins/dxgi.dll",S+"/rspack/plugins/dxgi.dll"); Check(Version.TryParse(rsv??"",out _) && Core.ReshadeStatus().Version==rsv, "version de ReShade lue dans le dll ("+rsv+")");
     Check(!Core.UpdateReshade(app,null,log,pr) && new FileInfo(app+"/plugins/dxgi.dll").Length==dll.Length, "mise a jour ReShade : deja la derniere version");
     Core.UninstallReshade(app,log,pr);
     Check(R(app+"/plugins/dxgi.dll")=="DLL" && !File.Exists(app+"/plugins/ReShade.ini") && !Directory.Exists(app+"/plugins/reshade-shaders"), "desinstallation ReShade remet le dll du pack");
@@ -178,6 +178,14 @@ class T {
     Check(R(app+"/mods/QuantV_v5.rpf")=="QV3" && !File.Exists(app+"/mods/aQuantV.rpf") && R(app+"/plugins/QuantV.addon")=="A2", "QuantV mis a jour avec un .rpf seul (renomme)");
     Check(Directory.GetDirectories(S+"/appdata/quantv").Length>=1, "ancienne version de QuantV sauvegardee");
     try { Core.UpdateQuantV(S+"/explosions.rpf",app,log,pr); Check(false,"pas quantv"); } catch(GfxException e){ Check(e.Message.Contains("QuantV") && R(app+"/mods/QuantV_v5.rpf")=="QV3", "mise a jour sans QuantV refusee"); }
+    // nouvelle version prise toute seule dans Telechargements
+    Environment.SetEnvironmentVariable("FIVEM_GFX_DOWNLOADS", S+"/dl");
+    W(S+"/dl/QuantV_v4_ancien.zip","x"); File.SetLastWriteTime(S+"/dl/QuantV_v4_ancien.zip", DateTime.Now.AddDays(-30)); W(S+"/dl/autre.rpf","x");
+    Check(Core.FindQuantVDownload()==null, "Telechargements : vieille archive QuantV et autres fichiers ignores");
+    System.Threading.Thread.Sleep(50); W(S+"/dl/QuantV_v6.rpf","QV6");
+    var nq=Core.FindQuantVDownload(); Check(nq!=null && nq.EndsWith("QuantV_v6.rpf"), "Telechargements : nouvelle version de QuantV trouvee");
+    Core.UpdateQuantV(nq,app,log,pr);
+    Check(R(app+"/mods/QuantV_v6.rpf")=="QV6" && !File.Exists(app+"/mods/QuantV_v5.rpf") && Core.FindQuantVDownload()==null, "QuantV mis a jour depuis Telechargements, puis plus rien de nouveau");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr); Core.DeleteFromLibrary(qp.Id,log);
     Check(!File.Exists(app+"/mods/QuantV_v5.rpf") && !File.Exists(app+"/plugins/QuantV.addon") && Core.ListLibrary().Count==3, "pack QuantV retire proprement");
     Core.InstallLibraryPack(g.Id,app,log,pr); Core.InstallLibraryPack(son.Id,app,log,pr); Core.InstallLibraryPack(arm.Id,app,log,pr);
@@ -279,6 +287,13 @@ class T {
     Core.UninstallReshade(app,log,pr);
     Check(!File.Exists(app+"/plugins/dxgi.dll") && !File.Exists(app+"/plugins/ReShade.ini"), "desinstallation apres mise a jour : propre");
     try { Core.UpdateReshade(app,S+"/fake2/ReShade64.dll",log,pr); Check(false,"majrs0"); } catch(GfxException){ Check(true, "mise a jour ReShade refusee s'il n'est pas installe"); }
+    // ReShade fourni par un pack : la mise a jour se met par-dessus, celui du pack revient a la desinstallation
+    var rsp=Core.InstallPack(S+"/rspack",app,log,pr);
+    Check(Core.ReshadeStatus()==null && Core.ReshadeDllVersion(app)==rsv, "ReShade fourni par un pack reconnu ("+rsv+")");
+    Check(Core.UpdateReshade(app,S+"/fake2/ReShade64.dll",log,pr) && R(app+"/plugins/dxgi.dll")=="RESHADE2" && R(app+"/plugins/ReShade.ini")=="[GENERAL]", "mise a jour du ReShade fourni par un pack, son ReShade.ini garde");
+    Core.UninstallReshade(app,log,pr);
+    Check(Core.ReshadeDllVersion(app)==rsv && Core.ReshadeStatus()==null, "desinstallation ReShade remet celui du pack");
+    Core.UninstallPack(rsp.Id,app,log,pr);
     Check(!File.Exists(app+"/plugins/dxgi.dll") && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "puis retrait du pack : plus de dll");
     Check(!Directory.Exists(app+"/plugins") || !Directory.EnumerateFiles(app+"/plugins","*",SearchOption.AllDirectories).Any(), "plugins vide a la fin");
     // --- profils graphiques ---

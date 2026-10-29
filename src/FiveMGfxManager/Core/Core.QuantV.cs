@@ -51,6 +51,31 @@ namespace FiveMGfxManager
             return list;
         }
 
+        // Dossier Téléchargements de Windows (FIVEM_GFX_DOWNLOADS le remplace pour les tests)
+        static string DownloadsDir() => Environment.GetEnvironmentVariable("FIVEM_GFX_DOWNLOADS")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+        static readonly string[] QuantVExts = { ".zip", ".7z", ".rar", ".rpf" };
+
+        // QuantV est payant (Patreon / Discord) : impossible de le télécharger à la place de l'utilisateur.
+        // On prend la plus récente archive ou .rpf « QuantV » de Téléchargements arrivée après la version
+        // actuelle (import du pack ou dernière mise à jour), null si aucune.
+        public static string FindQuantVDownload()
+        {
+            string dir = DownloadsDir();
+            var packs = FindQuantV();
+            if (packs.Count == 0 || !Directory.Exists(dir)) return null;
+            var since = new DateTime(LoadConfig().QuantVMaj);
+            foreach (var q in packs)
+                if (DateTime.TryParseExact(q.Pack.Id.Substring(0, Math.Min(15, q.Pack.Id.Length)), "yyyyMMdd_HHmmss",
+                                           null, System.Globalization.DateTimeStyles.None, out var d) && d > since)
+                    since = d;
+            return Directory.GetFiles(dir)
+                            .Where(f => IsQuantV(Path.GetFileName(f)) && QuantVExts.Contains(Path.GetExtension(f).ToLowerInvariant())
+                                        && File.GetLastWriteTime(f) > since)
+                            .OrderByDescending(File.GetLastWriteTime).FirstOrDefault();
+        }
+
         // Remplace QuantV dans tous les packs qui le contiennent par la version de source
         // (archive, dossier ou .rpf). Les packs installés sont retirés puis réinstallés.
         // Les anciens fichiers QuantV sont sauvegardés dans quantv\<date>\.
@@ -126,6 +151,9 @@ namespace FiveMGfxManager
                         InstallLibraryPack(pack.Id, fivemApp, log, p => step(0.3 + p * 0.7));
                 }
                 if (Directory.Exists(backupRoot)) log("Ancienne version de QuantV sauvegardée dans " + backupRoot);
+                var cfg = LoadConfig();
+                cfg.QuantVMaj = DateTime.Now.Ticks;
+                SaveConfig(cfg);
                 progress(1);
                 return targets.Count;
             });

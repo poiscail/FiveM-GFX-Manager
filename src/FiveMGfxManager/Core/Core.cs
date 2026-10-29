@@ -81,6 +81,7 @@ namespace FiveMGfxManager
         [DataMember] public List<PackInfo> PacksInstalles = new List<PackInfo>();
         [DataMember] public ReshadeState Reshade;
         [DataMember] public List<string> SonsCoupes; // packs son retirés pour un serveur « pure » (à remettre)
+        [DataMember] public long QuantVMaj;          // date (ticks) de la dernière mise à jour de QuantV
     }
 
     [DataContract]

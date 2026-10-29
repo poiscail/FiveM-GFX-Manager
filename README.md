@@ -38,6 +38,8 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - onglet **QuantV** : trouve QuantV dans les packs de la bibliothèque et le remplace par la nouvelle
   version donnée (archive, dossier ou `.rpf`) ; un pack installé est réinstallé, les réglages `.ini`
   sont gardés et l'ancienne version est sauvegardée ;
+  le bouton **Chercher la nouvelle version** prend tout seul la dernière archive QuantV arrivée dans
+  Téléchargements (QuantV est payant : il faut la télécharger soi-même sur Patreon / Discord) ;
 - onglet **Graphismes** : trois profils de réglages GTA (Performance / Équilibré / Qualité) écrits dans
   `%APPDATA%\CitizenFX\gta5_settings.xml` ; les réglages d'origine sont sauvegardés et peuvent être remis ;
 - onglet **Presets ReShade** : liste les presets de `FiveM.app\plugins`, choisit le preset actif, le duplique,

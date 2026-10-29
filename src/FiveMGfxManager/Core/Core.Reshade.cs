@@ -40,6 +40,58 @@ namespace FiveMGfxManager
             return (ReshadeSite + best.path, best.ver);
         }
 
+        // Version du ReShade en place dans plugins\dxgi.dll (installé ici ou fourni par un pack), null si inconnue
+        public static string ReshadeDllVersion(string fivemApp)
+        {
+            string dll = Path.Combine(fivemApp, "plugins", "dxgi.dll");
+            if (!File.Exists(dll)) return null;
+            try
+            {
+                var v = FileVersionInfo.GetVersionInfo(dll);
+                if ((v.ProductName + " " + v.FileDescription).IndexOf("ReShade", StringComparison.OrdinalIgnoreCase) < 0) return null;
+                return $"{v.FileMajorPart}.{v.FileMinorPart}.{v.FileBuildPart}";
+            }
+            catch { return null; }
+        }
+
+        // Remplace le dxgi.dll de ReShade par la dernière version sans toucher au ReShade.ini, aux presets
+        // ni aux shaders. ReShade fourni par un pack : le nouveau se met par-dessus (celui du pack revient
+        // à la désinstallation). Renvoie false si la version en place est déjà la dernière.
+        public static bool UpdateReshade(string fivemApp, string setupFile, Action<string> log, Action<double> progress)
+        {
+            if (!IsValidFivemApp(fivemApp)) throw new GfxException("Le dossier FiveM.app est invalide.");
+            string current = ReshadeDllVersion(fivemApp);
+            if (ReshadeStatus() == null && current == null)
+                throw new GfxException("ReShade n'est pas installé : utilise « Installer ReShade ».");
+            var over = LoadConfig().PacksInstalles.FirstOrDefault(p => (ReadJson<Manifest>(ManifestPath(p.Id))?.SurReshade ?? new List<string>())
+                                                                        .Contains("plugins/dxgi.dll", StringComparer.OrdinalIgnoreCase));
+            if (over != null)
+                throw new GfxException($"Le pack « {over.Nom} » a remplacé le dxgi.dll de ReShade : retire-le avant de mettre ReShade à jour.");
+            string work = NewTempDir("fivem_reshade_maj_");
+            try
+            {
+                if (setupFile == null)
+                {
+                    var (url, latest) = FindLatestReshadeUrl(log);
+                    if (Version.TryParse(current ?? "", out var cur) && cur >= Version.Parse(latest))
+                    {
+                        log($"ReShade {current} est déjà la dernière version.");
+                        progress(1);
+                        return false;
+                    }
+                    log(current != null ? $"Mise à jour de ReShade {current} vers {latest}…" : $"Mise à jour vers ReShade {latest}…");
+                    setupFile = Path.Combine(work, $"ReShade_Setup_{latest}.exe");
+                    Download(url, setupFile, log, p => progress(p * 0.5));
+                }
+                InstallReshade(fivemApp, setupFile, false, null, log, p => progress(0.5 + p * 0.5));
+                return true;
+            }
+            finally
+            {
+                try { RemoveTree(work); } catch { }
+            }
+        }
+
         // Le setup ReShade contient une archive zip (collée à la fin de l'exe) avec ReShade64.dll.
         static string ExtractReshadeDll(string setupExe, string destDir)
         {
@@ -176,13 +228,13 @@ namespace FiveMGfxManager
                     log($"Preset « {Path.GetFileName(preset)} » appliqué.");
                 }
 
-                state.Version = version;
+                state.Version = ReshadeDllVersion(fivemApp) ?? version;
                 state.Date = Now();
                 var cfg = LoadConfig();
                 cfg.Reshade = state;
                 SaveConfig(cfg);
                 progress(1);
-                log($"ReShade {version} installé. Lance FiveM puis appuie sur Début (Home) en jeu.");
+                log($"ReShade {state.Version} installé. Lance FiveM puis appuie sur Début (Home) en jeu.");
             }
             finally
             {

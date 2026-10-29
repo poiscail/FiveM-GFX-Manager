@@ -34,6 +34,7 @@ Logiciel Windows (aucune installation nécessaire) pour :
   dans l'archive décompressées, fichiers en double gardés une fois) vont dans le même paquet ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
+- **« Mettre à jour ReShade »** : compare la version en place (lue dans `dxgi.dll`, même celle fournie par un pack) à la dernière de reshade.me et remplace seulement le dll — `ReShade.ini`, presets et shaders sont gardés ;
 - onglet **QuantV** : trouve QuantV dans les packs de la bibliothèque et le remplace par la nouvelle
   version donnée (archive, dossier ou `.rpf`) ; un pack installé est réinstallé, les réglages `.ini`
   sont gardés et l'ancienne version est sauvegardée ;

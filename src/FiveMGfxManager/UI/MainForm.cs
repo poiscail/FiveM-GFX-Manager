@@ -1120,6 +1120,10 @@ namespace FiveMGfxManager
 
             var btns = ButtonBar();
             btns.Controls.Add(Btn("Installer ReShade", InstallReshade, ButtonKind.Primary, Glyph.Download));
+            var upd = Btn("Mettre à jour ReShade", UpdateReshade, ButtonKind.Secondary, Glyph.Update);
+            tips.SetToolTip(upd, "Met la dernière version de ReShade (reshade.me) en gardant ton ReShade.ini, tes presets et tes shaders.\n" +
+                                 "Marche aussi pour le ReShade fourni par un pack.");
+            btns.Controls.Add(upd);
             btns.Controls.Add(Btn("Désinstaller ReShade", UninstallReshade, ButtonKind.Danger, Glyph.Delete));
             AddRow(page, btns);
             return page;
@@ -1188,8 +1192,13 @@ namespace FiveMGfxManager
                 backupCard.Set(Glyph.Warning, Theme.Accent, "Aucune sauvegarde d'origine",
                                "Crée-la maintenant, pendant que FiveM est sans mods.");
             var rs = Core.ReshadeStatus();
+            string fivemOk = ValidFivem();
+            string rsVer = fivemOk == null ? null : Core.ReshadeDllVersion(fivemOk);
             if (rs != null)
-                reshadeCard.Set(Glyph.Check, Theme.Ok, $"ReShade {rs.Version} installé", $"Installé le {rs.Date}");
+                reshadeCard.Set(Glyph.Check, Theme.Ok, $"ReShade {rsVer ?? rs.Version} installé", $"Installé le {rs.Date}");
+            else if (rsVer != null)
+                reshadeCard.Set(Glyph.Check, Theme.Ok, $"ReShade {rsVer} fourni par un pack",
+                                "« Mettre à jour ReShade » met la dernière version par-dessus.");
             else
                 reshadeCard.Set(Glyph.Reshade, Theme.Muted, "ReShade n'est pas installé",
                                 "Il peut être téléchargé et installé automatiquement.");
@@ -1861,6 +1870,24 @@ namespace FiveMGfxManager
             bool shaders = shadersCheck.Checked;
             RunTask((log, p) => Core.InstallReshade(fivem, setup == "" ? null : setup, shaders,
                                                     preset == "" ? null : preset, log, p));
+        }
+
+        void UpdateReshade()
+        {
+            string fivem = FivemPath();
+            if (fivem == null || !FivemClosed()) return;
+            if (Core.ReshadeStatus() == null && Core.ReshadeDllVersion(fivem) == null)
+            {
+                Info("ReShade", "ReShade n'est pas installé : utilise « Installer ReShade ».");
+                return;
+            }
+            string setup = Clean(reshadeBox.Text);
+            if (setup != "" && !File.Exists(setup))
+            {
+                MessageBox.Show(this, setup, "Fichier introuvable", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            RunTask((log, p) => Core.UpdateReshade(fivem, setup == "" ? null : setup, log, p));
         }
 
         void UninstallReshade()

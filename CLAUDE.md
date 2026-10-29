@@ -42,7 +42,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Core/Core.PureMode.cs` | Serveurs « pure » : `CutSounds` retire les packs son installés et note leurs `LibId` dans `Config.SonsCoupes`, `RestoreSounds` les réinstalle (sauf conflit ou pack supprimé) ; bouton « Couper / Remettre les sons » de la barre latérale |
 | `Core/Core.Scan.cs` | Recherche des sons d'armes déjà présents avant un pack son (`FindWeaponSounds`, lecteur RPF7 non chiffré `RpfEntries`) |
 | `Core/Core.Backup.cs` | Sauvegarde et restauration d'origine |
-| `Core/Core.Reshade.cs` | Téléchargement / installation / désinstallation de ReShade |
+| `Core/Core.Reshade.cs` | Téléchargement / installation / désinstallation de ReShade ; `ReshadeDllVersion` (version lue dans `plugins\dxgi.dll`), `UpdateReshade` (remplace seulement le dll si reshade.me a plus récent, refuse si un pack est par-dessus, marche aussi pour le ReShade d'un pack) |
 | `Core/Core.QuantV.cs` | Onglet QuantV : repère QuantV dans les packs et le remplace par une nouvelle version |
 | `Core/Core.Graphics.cs` | Profils graphiques Performance / Équilibré / Qualité dans `%APPDATA%\CitizenFX\gta5_settings.xml` (`FIVEM_GFX_SETTINGS` pour les tests), sauvegarde `graphismes\origine.xml` |
 | `Core/Core.Presets.cs` | Presets ReShade de `plugins` (liste, preset actif, copie), mode performance, rangement des dossiers de shaders inutilisés (`shaders_ranges`) |
@@ -55,7 +55,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (129 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (135 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement

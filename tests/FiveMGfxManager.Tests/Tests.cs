@@ -33,6 +33,8 @@ class T {
     var dll=new FileInfo(app+"/plugins/dxgi.dll"); Check(dll.Length>1000000, "ReShade dxgi.dll ("+dll.Length+" o)");
     Check(Directory.EnumerateFiles(app+"/plugins/reshade-shaders/Shaders","*.fx",SearchOption.AllDirectories).Count()>=5 && File.Exists(app+"/plugins/reshade-shaders/Shaders/ReShade.fxh"), "shaders installes"); // la branche slim n'a que 5 .fx
     Console.WriteLine(File.ReadAllText(app+"/plugins/ReShade.ini"));
+    var rsv=Core.ReshadeDllVersion(app); Check(Version.TryParse(rsv??"",out _) && Core.ReshadeStatus().Version==rsv, "version de ReShade lue dans le dll ("+rsv+")");
+    Check(!Core.UpdateReshade(app,null,log,pr) && new FileInfo(app+"/plugins/dxgi.dll").Length==dll.Length, "mise a jour ReShade : deja la derniere version");
     Core.UninstallReshade(app,log,pr);
     Check(R(app+"/plugins/dxgi.dll")=="DLL" && !File.Exists(app+"/plugins/ReShade.ini") && !Directory.Exists(app+"/plugins/reshade-shaders"), "desinstallation ReShade remet le dll du pack");
     Core.ClearFivemCache(app,log); Check(!Directory.Exists(app+"/data/cache"), "cache vide");
@@ -265,9 +267,18 @@ class T {
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
     Check(R(app+"/plugins/dxgi.dll")=="RESHADE" && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "retrait du pack remet le dll de ReShade");
     Core.InstallPack(S+"/src",app,log,pr);
+    try { Core.UpdateReshade(app,S+"/fake/ReShade64.dll",log,pr); Check(false,"majrs"); } catch(GfxException){ Check(R(app+"/plugins/dxgi.dll")=="DLL", "mise a jour ReShade refusee si un pack a remplace son dll"); }
     Core.UninstallReshade(app,log,pr);
     Check(R(app+"/plugins/dxgi.dll")=="DLL" && !File.Exists(app+"/plugins/ReShade.ini"), "desinstallation ReShade garde le dll du pack installe par-dessus");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    // ReShade installe ici, mis a jour : reglages gardes
+    Core.InstallReshade(app,S+"/fake/ReShade64.dll",false,null,log,pr);
+    W(app+"/plugins/ReShade.ini","[GENERAL]\nPresetPath=.\\Mien.ini\n");
+    W(S+"/fake2/ReShade64.dll","RESHADE2");
+    Check(Core.UpdateReshade(app,S+"/fake2/ReShade64.dll",log,pr) && R(app+"/plugins/dxgi.dll")=="RESHADE2" && R(app+"/plugins/ReShade.ini").Contains("Mien.ini"), "mise a jour ReShade : nouveau dll, ReShade.ini garde");
+    Core.UninstallReshade(app,log,pr);
+    Check(!File.Exists(app+"/plugins/dxgi.dll") && !File.Exists(app+"/plugins/ReShade.ini"), "desinstallation apres mise a jour : propre");
+    try { Core.UpdateReshade(app,S+"/fake2/ReShade64.dll",log,pr); Check(false,"majrs0"); } catch(GfxException){ Check(true, "mise a jour ReShade refusee s'il n'est pas installe"); }
     Check(!File.Exists(app+"/plugins/dxgi.dll") && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "puis retrait du pack : plus de dll");
     Check(!Directory.Exists(app+"/plugins") || !Directory.EnumerateFiles(app+"/plugins","*",SearchOption.AllDirectories).Any(), "plugins vide a la fin");
     // --- profils graphiques ---

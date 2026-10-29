@@ -40,6 +40,8 @@ UTILISATION CONSEILLEE
    presents et propose de les mettre de cote (ils reviennent au retrait du pack).
 4. Onglet "ReShade" -> "Installer ReShade" (telechargement automatique).
    En jeu, le menu ReShade s'ouvre avec la touche Debut (Home).
+   "Mettre a jour ReShade" met la derniere version de reshade.me (seulement le dxgi.dll :
+   ReShade.ini, presets et shaders gardes). Marche aussi pour le ReShade fourni par un pack.
    Un pack peut etre installe par-dessus ReShade, inutile de le desinstaller avant :
    si le pack remplace le dxgi.dll de ReShade, celui de ReShade revient quand on retire le pack.
 5. Onglet "QuantV" : pour mettre a jour QuantV. Le logiciel trouve QuantV dans tes packs ;

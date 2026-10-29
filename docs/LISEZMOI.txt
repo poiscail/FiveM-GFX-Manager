@@ -15,6 +15,8 @@ UTILISATION CONSEILLEE
    (ou glisse tes .zip / .7z / .rar / .rpf dans la liste). Les packs sont stockes dans la
    bibliotheque. Selectionne un pack -> "Installer". Plusieurs packs peuvent etre installes
    en meme temps (ex. un graphique + un son + des armes).
+   Pack d'armes avec plusieurs variantes (Glow / Regular...) : une fenetre demande
+   laquelle installer.
    "Ajouter des mods au pack..." ajoute d'autres fichiers a un pack de la bibliotheque.
    Clic droit -> "Renommer..." (ou F2) pour changer le nom d'un pack.
    Dossiers : "Nouveau dossier..." (en haut, ou clic droit dans le vide de la liste).

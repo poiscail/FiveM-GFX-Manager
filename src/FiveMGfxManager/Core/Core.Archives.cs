@@ -1,4 +1,4 @@
-// Décompression des archives et préparation des packs (normalisation en citizen / mods / plugins)
+﻿// Décompression des archives et préparation des packs (normalisation en citizen / mods / plugins)
 
 using System;
 using System.Collections.Generic;
@@ -116,6 +116,10 @@ namespace FiveMGfxManager
         }
 
         // Décompresse et range source dans work\range, puis renvoie ce dossier.
+        // Choix de la variante par l'utilisateur : (question, variantes) → variante choisie, null = annuler.
+        // Non défini (tests) : la variante proposée en premier est gardée.
+        public static Func<string, List<string>, string> ChooseVariant;
+
         static string StageSource(string source, string work, Action<string> log, Action<double> progress, bool mod = false)
         {
             string staged = Path.Combine(work, "range");
@@ -340,9 +344,17 @@ namespace FiveMGfxManager
                                     .OrderBy(r => Regex.IsMatch(r.Substring(r.LastIndexOf('\\') + 1), "regular|normal|default|standard|original|base",
                                                                 RegexOptions.IgnoreCase) ? 0 : 1)
                                     .ThenBy(r => r, StringComparer.OrdinalIgnoreCase).ToList();
+                    if (ChooseVariant != null)
+                    {
+                        string pick = ChooseVariant($"Le pack contient plusieurs versions de « {Path.GetFileName(clash[0])} ».\n" +
+                                                    "FiveM ne peut en charger qu'une : quelle variante installer ?", roots)
+                                      ?? throw new GfxException("Ajout annulé : aucune variante choisie.");
+                        roots.Remove(pick);
+                        roots.Insert(0, pick);
+                    }
                     streamed = streamed.Where(f => !roots.Skip(1).Any(r => RelPath(folder, f).Replace('/', '\\')
                                                         .StartsWith(r + "\\", StringComparison.OrdinalIgnoreCase))).ToList();
-                    log($"Plusieurs variantes dans le pack : « {roots[0]} » gardée, " +
+                    log($"Variante « {roots[0]} » gardée, " +
                         string.Join(", ", roots.Skip(1).Select(r => $"« {r} »")) + " ignorée(s).\n" +
                         "  Pour une autre variante, ajoute seulement son dossier (« Ajouter un dossier… »).");
                 }

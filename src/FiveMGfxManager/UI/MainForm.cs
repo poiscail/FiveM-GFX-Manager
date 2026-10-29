@@ -89,6 +89,9 @@ namespace FiveMGfxManager
             MinimumSize = new Size(1040, 720);
             StartPosition = FormStartPosition.CenterScreen;
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
+            // appelé pendant l'ajout d'un pack (en arrière-plan) : la fenêtre s'ouvre sur le fil de l'interface
+            Core.ChooseVariant = (q, items) => (string)Invoke((Func<string>)(() =>
+                PickOne("Choisir une variante", q, items.ToArray(), items[0])));
 
             var cfg = Core.LoadConfig();
             fivemBox.Text = cfg.FivemApp ?? Core.DetectFivemApp() ?? "";
@@ -1329,7 +1332,10 @@ namespace FiveMGfxManager
         const string PackFilter = "Packs (*.zip;*.7z;*.rar;*.rpf)|*.zip;*.7z;*.rar;*.rpf|Tous les fichiers|*.*";
 
         // Petite fenêtre pour choisir un type de pack
-        string PickType(string title, string current)
+        string PickType(string title, string current) => PickOne(title, "Type du pack :", Core.PackTypes, current);
+
+        // Petite fenêtre pour choisir une valeur parmi quelques-unes, null si annulé
+        string PickOne(string title, string question, string[] items, string current)
         {
             using (var f = new Form
             {
@@ -1341,7 +1347,7 @@ namespace FiveMGfxManager
             {
                 f.HandleCreated += (s, e) => Theme.DarkTitleBar(f);
                 var flow = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-                var choice = new Segmented(Core.PackTypes) { SelectedItem = current, Height = LogicalToDeviceUnits(36) };
+                var choice = new Segmented(items) { SelectedItem = current, Height = LogicalToDeviceUnits(36) };
                 choice.Size = choice.GetPreferredSize(Size.Empty);
                 choice.Margin = new Padding(0, 0, 0, LogicalToDeviceUnits(18));
                 var buttons = new FlowLayoutPanel { AutoSize = true, Margin = new Padding(0) };
@@ -1353,7 +1359,7 @@ namespace FiveMGfxManager
                 cancel.Click += (s, e) => { f.DialogResult = DialogResult.Cancel; };
                 buttons.Controls.Add(ok);
                 buttons.Controls.Add(cancel);
-                flow.Controls.Add(Lbl("Type du pack :", Theme.Muted, new Padding(0, 0, 0, LogicalToDeviceUnits(8))));
+                flow.Controls.Add(Lbl(question, Theme.Muted, new Padding(0, 0, 0, LogicalToDeviceUnits(8))));
                 flow.Controls.Add(choice);
                 flow.Controls.Add(buttons);
                 f.Controls.Add(flow);

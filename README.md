@@ -32,6 +32,7 @@ Logiciel Windows (aucune installation nécessaire) pour :
   un `.rpf` d'armes sans `assembly.xml` est mis dans un paquet lui aussi (même au chemin OpenIV
   `…\dlc.rpf\x64\models\cdimages\weapons.rpf`) ; une arme ou un pack de plusieurs armes (archives
   dans l'archive décompressées, fichiers en double gardés une fois) vont dans le même paquet ;
+  pack à variantes (Glow / Regular, Variant 1 / 2…) : une fenêtre demande laquelle installer ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
 - **« Mettre à jour ReShade »** : compare la version en place (lue dans `dxgi.dll`, même celle fournie par un pack) à la dernière de reshade.me et remplace seulement le dll — `ReShade.ini`, presets et shaders sont gardés ;

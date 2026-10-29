@@ -140,6 +140,14 @@ class T {
       var ve=Core.ReadRpfEntries(Directory.GetFiles(S+"/appdata/bibliotheque/"+vp.Id+"/contenu/mods","*.rpf")[0])?.Select(x=>x.Path).Where(x=>x.StartsWith("content/")).OrderBy(x=>x).ToList();
       Check(ve!=null && ve.SequenceEqual(new[]{"content/a.ytd","content/b.ydr","content/g.ydr"}), "variantes : Regular et Variant 1 gardees en entier ("+string.Join(",",ve??new System.Collections.Generic.List<string>())+")");
       Core.DeleteFromLibrary(vp.Id,log);
+      Core.ChooseVariant=(q,it)=>it.First(x=>x.Contains("Glow")||x.Contains("Variant 2"));
+      var vg=Core.ImportPack(S+"/variantes","Armes",log,pr);
+      ve=Core.ReadRpfEntries(Directory.GetFiles(S+"/appdata/bibliotheque/"+vg.Id+"/contenu/mods","*.rpf")[0])?.Select(x=>x.Path).Where(x=>x.StartsWith("content/")).OrderBy(x=>x).ToList();
+      Check(ve!=null && ve.SequenceEqual(new[]{"content/a.ytd","content/b.ydr","content/g.ydr","content/glow.ytd","content/x.ytd"}), "variantes choisies par l'utilisateur (Glow, Variant 2)");
+      Core.DeleteFromLibrary(vg.Id,log);
+      Core.ChooseVariant=(q,it)=>null;
+      try { Core.ImportPack(S+"/variantes","Armes",log,pr); Check(false,"choix annule"); } catch(GfxException e){ Check(e.Message.Contains("annulé") && Core.ListLibrary().All(p=>p.Nom!="variantes"), "choix de variante annule : pack pas ajoute"); }
+      Core.ChooseVariant=null;
       // une version dans le dossier parent d'une autre : refus qui nomme les dossiers
       Directory.CreateDirectory(S+"/variantes2/Or"); File.WriteAllBytes(S+"/variantes2/w_pi_pistol.ytd",Rsc("NOIR")); File.WriteAllBytes(S+"/variantes2/Or/w_pi_pistol.ytd",Rsc("OR"));
       try { Core.ImportPack(S+"/variantes2","Armes",log,pr); Check(false,"variantes"); } catch(GfxException e){ Check(e.Message.Contains("Or") && e.Message.Contains("(racine)"), "deux versions d'une arme sans variante claire refusees en nommant les dossiers"); }

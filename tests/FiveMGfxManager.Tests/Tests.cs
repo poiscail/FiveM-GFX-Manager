@@ -1,4 +1,4 @@
-using System; using System.IO; using System.Linq; using FiveMGfxManager;
+﻿using System; using System.IO; using System.Linq; using FiveMGfxManager;
 class T {
   static void Check(bool c, string m){ if(!c) throw new Exception("ECHEC: "+m); Console.WriteLine("  ok - "+m); }
   static string R(string p)=>File.ReadAllText(p).Trim();
@@ -35,6 +35,8 @@ class T {
     Console.WriteLine(File.ReadAllText(app+"/plugins/ReShade.ini"));
     var rsv=Core.ReshadeDllVersion(app); W(S+"/rspack/plugins/ReShade.ini","[GENERAL]"); File.Copy(app+"/plugins/dxgi.dll",S+"/rspack/plugins/dxgi.dll"); Check(Version.TryParse(rsv??"",out _) && Core.ReshadeStatus().Version==rsv, "version de ReShade lue dans le dll ("+rsv+")");
     Check(!Core.UpdateReshade(app,null,log,pr) && new FileInfo(app+"/plugins/dxgi.dll").Length==dll.Length, "mise a jour ReShade : deja la derniere version");
+    W(app+"/plugins/ReShade.ini","[GENERAL]\nEffectSearchPaths=.\\\n"); Core.InstallReshade(app,S+"/rspack/plugins/dxgi.dll",true,null,log,pr);
+    Check(Core.ReshadeHasEffects(app) && Core.IniGet(app+"/plugins/ReShade.ini","GENERAL","EffectSearchPaths").Contains("reshade-shaders"), "ReShade.ini sans shaders : chemins corriges");
     Core.UninstallReshade(app,log,pr);
     Check(R(app+"/plugins/dxgi.dll")=="DLL" && !File.Exists(app+"/plugins/ReShade.ini") && !Directory.Exists(app+"/plugins/reshade-shaders"), "desinstallation ReShade remet le dll du pack");
     Core.ClearFivemCache(app,log); Check(!Directory.Exists(app+"/data/cache"), "cache vide");

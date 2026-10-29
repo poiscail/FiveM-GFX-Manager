@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -1206,6 +1206,9 @@ namespace FiveMGfxManager
             else
                 reshadeCard.Set(Glyph.Reshade, Theme.Muted, "ReShade n'est pas installé",
                                 "Il peut être téléchargé et installé automatiquement.");
+            if (rsVer != null && !Core.ReshadeHasEffects(fivemOk))
+                reshadeCard.Set(Glyph.Warning, Theme.Accent, $"ReShade {rsVer} n'a aucun effet (.fx)",
+                                "Installe un pack graphique (QuantV…), ou « Installer ReShade » avec les shaders officiels cochés.");
             var qv = Core.FindQuantV();
             if (qv.Count > 0)
             {

@@ -1,4 +1,4 @@
-// Installation de ReShade
+﻿// Installation de ReShade
 
 using System;
 using System.Collections.Generic;
@@ -52,6 +52,13 @@ namespace FiveMGfxManager
                 return $"{v.FileMajorPart}.{v.FileMinorPart}.{v.FileBuildPart}";
             }
             catch { return null; }
+        }
+
+        // Vrai si ReShade a au moins un effet (.fx) dans plugins\reshade-shaders (sinon il n'affiche rien en jeu)
+        public static bool ReshadeHasEffects(string fivemApp)
+        {
+            string d = P(fivemApp, "plugins/reshade-shaders/Shaders");
+            return Directory.Exists(d) && Directory.EnumerateFiles(d, "*.fx", SearchOption.AllDirectories).Any();
         }
 
         // Remplace le dxgi.dll de ReShade par la dernière version sans toucher au ReShade.ini, aux presets
@@ -218,6 +225,14 @@ namespace FiveMGfxManager
                         "\r\n[INPUT]\r\nKeyOverlay=36,0,0,0\r\n" +
                         "\r\n[OVERLAY]\r\nTutorialProgress=4\r\n");
                     log("ReShade.ini créé (touche du menu : Début / Home)");
+                }
+                else if (withShaders && (IniGet(ini, "GENERAL", "EffectSearchPaths") ?? "")
+                                            .IndexOf("reshade-shaders", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    // ReShade.ini laissé par un pack retiré (ou recréé par ReShade) : il ne cherche pas dans les shaders
+                    IniSet(ini, "GENERAL", "EffectSearchPaths", @".\reshade-shaders\Shaders\**");
+                    IniSet(ini, "GENERAL", "TextureSearchPaths", @".\reshade-shaders\Textures\**");
+                    log("ReShade.ini : chemins des shaders corrigés.");
                 }
 
                 if (!string.IsNullOrEmpty(preset))

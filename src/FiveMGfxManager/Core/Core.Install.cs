@@ -1,4 +1,4 @@
-// Installation et retrait des packs dans FiveM.app
+﻿// Installation et retrait des packs dans FiveM.app
 
 using System;
 using System.Collections.Generic;
@@ -249,6 +249,9 @@ namespace FiveMGfxManager
             SaveConfig(cfg);
             GiveBackWeapons(packId, fivemApp, log);
             log($"Pack retiré : {manifest.Ajoutes.Count} fichiers supprimés, {manifest.Remplaces.Count} fichiers d'origine remis.");
+            if (ReshadeDllVersion(fivemApp) != null && !ReshadeHasEffects(fivemApp))
+                log("Attention : ReShade reste installé mais n'a plus aucun effet (.fx). Installe un pack graphique, " +
+                    "ou « Installer ReShade » avec les shaders officiels.");
             SnapshotSizes(fivemApp);
             RecordRemoval($"Retiré : {info.Nom}", info.LibId);
         }

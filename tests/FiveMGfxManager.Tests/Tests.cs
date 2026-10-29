@@ -77,6 +77,24 @@ class T {
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr); Core.DeleteFromLibrary(mod.Id,log);
     Check(!File.Exists(app+"/mods/roads.rpf") && Core.ListLibrary().Count==3, "mod retire et supprime proprement");
     try { Core.ImportPack(S+"/eau",Core.ModType,log,pr); Check(false,"mod sans rpf"); } catch(GfxException e){ Check(e.Message.Contains(".rpf") && Core.ListLibrary().Count==3, "mod sans .rpf refuse"); }
+    // onglet QuantV : la nouvelle version remplace celle du pack (et de FiveM.app si le pack est installe)
+    string lut="/plugins/reshade-shaders/Textures/QuantV/LUT/";
+    W(S+"/qv/QuantV/mods/aQuantV.rpf","QV1"); W(S+"/qv/QuantV/plugins/QuantV.addon","A1"); W(S+"/qv/QuantV/plugins/QuantV.preset.ini","REGLAGES");
+    W(S+"/qv/QuantV"+lut+"global.png","G1"); W(S+"/qv/QuantV"+lut+"old.png","OLD");
+    var qp=Core.ImportPack(S+"/qv","Graphique",log,pr); Core.InstallLibraryPack(qp.Id,app,log,pr);
+    var qf=Core.FindQuantV(); Check(qf.Count==1 && qf[0].Installe && qf[0].Rpf=="mods/aQuantV.rpf", "QuantV trouve dans le pack installe");
+    W(S+"/qv2/QuantV 4/mods/aQuantV.rpf","QV2"); W(S+"/qv2/QuantV 4/plugins/QuantV.addon","A2"); W(S+"/qv2/QuantV 4/plugins/QuantV.preset.ini","NEUF");
+    W(S+"/qv2/QuantV 4"+lut+"global.png","G2");
+    Core.UpdateQuantV(S+"/qv2",app,log,pr); string qc=S+"/appdata/bibliotheque/"+qp.Id+"/contenu";
+    Check(R(app+"/mods/aQuantV.rpf")=="QV2" && R(app+"/plugins/QuantV.addon")=="A2" && R(app+lut+"global.png")=="G2" && R(qc+"/mods/aQuantV.rpf")=="QV2"
+          && Core.InstalledPacks().Single().LibId==qp.Id, "QuantV mis a jour depuis un dossier (pack et FiveM.app)");
+    Check(!File.Exists(app+lut+"old.png") && !File.Exists(qc+lut+"old.png") && R(app+"/plugins/QuantV.preset.ini")=="REGLAGES", "anciens fichiers QuantV retires, reglages .ini gardes");
+    W(S+"/QuantV_v5.rpf","QV3"); Core.UpdateQuantV(S+"/QuantV_v5.rpf",app,log,pr);
+    Check(R(app+"/mods/QuantV_v5.rpf")=="QV3" && !File.Exists(app+"/mods/aQuantV.rpf") && R(app+"/plugins/QuantV.addon")=="A2", "QuantV mis a jour avec un .rpf seul (renomme)");
+    Check(Directory.GetDirectories(S+"/appdata/quantv").Length>=1, "ancienne version de QuantV sauvegardee");
+    try { Core.UpdateQuantV(S+"/explosions.rpf",app,log,pr); Check(false,"pas quantv"); } catch(GfxException e){ Check(e.Message.Contains("QuantV") && R(app+"/mods/QuantV_v5.rpf")=="QV3", "mise a jour sans QuantV refusee"); }
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr); Core.DeleteFromLibrary(qp.Id,log);
+    Check(!File.Exists(app+"/mods/QuantV_v5.rpf") && !File.Exists(app+"/plugins/QuantV.addon") && Core.ListLibrary().Count==3, "pack QuantV retire proprement");
     Core.InstallLibraryPack(g.Id,app,log,pr); Core.InstallLibraryPack(son.Id,app,log,pr); Core.InstallLibraryPack(arm.Id,app,log,pr);
     Check(Core.InstalledPacks().Count==3 && R(app+"/citizen/common/data/timecycle.xml")=="MOD", "3 packs installes ensemble");
     Check(R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON" && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf"), "pack son pose dans GTA V/x64/audio (FiveM ne lit pas ces sons dans mods)");

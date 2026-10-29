@@ -21,6 +21,9 @@ Logiciel Windows (aucune installation nécessaire) pour :
   nommé `effects`, `timecycle`, `ui`, `gta5` ou `common\data\…` donne la destination ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
+- onglet **QuantV** : trouve QuantV dans les packs de la bibliothèque et le remplace par la nouvelle
+  version donnée (archive, dossier ou `.rpf`) ; un pack installé est réinstallé, les réglages `.ini`
+  sont gardés et l'ancienne version est sauvegardée ;
 - vider le cache FiveM.
 
 Formats de packs acceptés : arborescence `citizen` / `mods` / `plugins`, format GTA `x64/...`
@@ -59,7 +62,8 @@ dotnet run -c Release -- <dossier-de-test>
 ```
 src/FiveMGfxManager/
   Core/   Core.cs (config, chemins FiveM / GTA V), Core.Archives.cs (décompression, normalisation),
-          Core.Install.cs (packs), Core.Library.cs (bibliothèque), Core.Backup.cs, Core.Reshade.cs
+          Core.Install.cs (packs), Core.Library.cs (bibliothèque), Core.Backup.cs, Core.Reshade.cs,
+          Core.QuantV.cs (mise à jour de QuantV)
   UI/     MainForm.cs (interface), Theme.cs (couleurs), Widgets.cs (contrôles dessinés)
   Program.cs, Assets/icon.ico, app.manifest
 tests/FiveMGfxManager.Tests/   tests de la logique

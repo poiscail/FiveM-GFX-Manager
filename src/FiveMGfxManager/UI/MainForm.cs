@@ -60,7 +60,8 @@ namespace FiveMGfxManager
         FlatButton installBtn, removeBtn, addModsBtn, typeBtn, deleteBtn;
 
         // État des pages Sauvegarde et ReShade
-        StatusCard backupCard, reshadeCard;
+        StatusCard backupCard, reshadeCard, quantvCard;
+        readonly Label quantvList = new Label();
 
         TextBox fivemBox => fivemInput.Box;
         TextBox reshadeBox => reshadeInput.Box;
@@ -106,6 +107,12 @@ namespace FiveMGfxManager
                 Title = "ReShade", Body = BuildReshadePage(),
                 Subtitle = "Filtres graphiques en jeu. Le menu s'ouvre avec la touche Début (Home).",
                 Nav = new FlatButton("ReShade", Glyph.Reshade, ButtonKind.Nav),
+            });
+            pages.Add(new Page
+            {
+                Title = "QuantV", Body = BuildQuantVPage(),
+                Subtitle = "Met à jour QuantV dans tes packs avec une nouvelle version (archive, dossier ou .rpf).",
+                Nav = new FlatButton("QuantV", Glyph.Update, ButtonKind.Nav),
             });
 
             // la zone principale est ajoutée avant la barre latérale pour être placée à sa droite
@@ -845,6 +852,45 @@ namespace FiveMGfxManager
             return page;
         }
 
+        Control BuildQuantVPage()
+        {
+            var page = Stack();
+            quantvCard = new StatusCard();
+            AddRow(page, quantvCard);
+
+            var card = new Card { Dock = DockStyle.Fill, Height = 230, Padding = new Padding(22, 18, 22, 18), Margin = new Padding(0) };
+            var t = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1 };
+            AddRow(t, Lbl("Packs qui contiennent QuantV", Theme.Fg, new Padding(0, 0, 0, 10), Theme.Semibold(11F)));
+            quantvList.AutoSize = true;
+            quantvList.ForeColor = Theme.Muted;
+            AddRow(t, quantvList);
+            AddRow(t, Lbl("Glisse ici la nouvelle version de QuantV (.zip, .7z, .rar, dossier ou .rpf), ou utilise les boutons.\n" +
+                          "Les fichiers QuantV du pack sont remplacés (tes réglages .ini sont gardés) ; un pack installé\n" +
+                          "est retiré puis réinstallé avec la nouvelle version. L'ancienne version est sauvegardée.",
+                          Theme.Muted, new Padding(0, 14, 0, 0)));
+            card.Controls.Add(t);
+            AddRow(page, card);
+
+            var btns = ButtonBar();
+            btns.Controls.Add(Btn("Mettre à jour avec une archive…", UpdateQuantVFile, ButtonKind.Primary, Glyph.Update));
+            btns.Controls.Add(Btn("Avec un dossier…", UpdateQuantVFolder, ButtonKind.Secondary, Glyph.Folder));
+            AddRow(page, btns);
+
+            // glisser-déposer de la nouvelle version n'importe où sur la page
+            foreach (var c in new Control[] { page, card, t, quantvList })
+            {
+                c.AllowDrop = true;
+                c.DragEnter += (s, e) =>
+                    e.Effect = e.Data.GetDataPresent(DataFormats.FileDrop) && !busy ? DragDropEffects.Copy : DragDropEffects.None;
+                c.DragDrop += (s, e) =>
+                {
+                    var f = (string[])e.Data.GetData(DataFormats.FileDrop);
+                    if (f != null && f.Length > 0) UpdateQuantV(f[0]);
+                };
+            }
+            return page;
+        }
+
         // ------------------------------------------------------- helpers --
 
         void Log(string msg, Color? color = null)
@@ -873,6 +919,23 @@ namespace FiveMGfxManager
             else
                 reshadeCard.Set(Glyph.Reshade, Theme.Muted, "ReShade n'est pas installé",
                                 "Il peut être téléchargé et installé automatiquement.");
+            var qv = Core.FindQuantV();
+            if (qv.Count > 0)
+            {
+                var last = qv.Where(q => q.DateRpf != null).Select(q => q.DateRpf.Value).DefaultIfEmpty().Max();
+                quantvCard.Set(Glyph.Check, Theme.Ok, $"QuantV trouvé dans {qv.Count} pack{(qv.Count > 1 ? "s" : "")}",
+                               (qv.Any(q => q.Installe) ? "Installé dans FiveM" : "Pas installé dans FiveM") +
+                               (last != default(DateTime) ? $"  ·  version du {last:dd/MM/yyyy}" : ""));
+                quantvList.Text = string.Join("\n", qv.Select(q =>
+                    $"•  {q.Pack.Nom}{(q.Installe ? "  (installé)" : "")}  —  {q.Fichiers.Count} fichiers QuantV" +
+                    (q.Rpf != null ? $", {q.Rpf.Replace('/', '\\')}" : "")));
+            }
+            else
+            {
+                quantvCard.Set(Glyph.Warning, Theme.Accent, "QuantV introuvable",
+                               "Aucun pack de la bibliothèque ne contient QuantV. Ajoute-le d'abord dans l'onglet Packs.");
+                quantvList.Text = "Aucun.";
+            }
         }
 
         static string Clean(string s) => (s ?? "").Trim().Trim('"');
@@ -1234,6 +1297,36 @@ namespace FiveMGfxManager
             var ids = del.Select(x => x.Lib.Id).ToList();
             if (Ask("Supprimer", $"Supprimer {what} de la bibliothèque ?\n(il faudra les importer à nouveau pour les réutiliser){skipped}"))
                 RunTask((log, p) => { foreach (var id in ids) Core.DeleteFromLibrary(id, log); });
+        }
+
+        void UpdateQuantVFile()
+        {
+            var f = PickFile("Nouvelle version de QuantV", PackFilter);
+            if (f != null) UpdateQuantV(f);
+        }
+
+        void UpdateQuantVFolder()
+        {
+            var d = PickFolder("Dossier de la nouvelle version de QuantV (déjà décompressée)");
+            if (d != null) UpdateQuantV(d);
+        }
+
+        void UpdateQuantV(string source)
+        {
+            if (busy) return;
+            var qv = Core.FindQuantV();
+            if (qv.Count == 0)
+            {
+                Info("QuantV introuvable", "Aucun pack de la bibliothèque ne contient QuantV.\nAjoute d'abord ton pack QuantV dans l'onglet Packs.");
+                return;
+            }
+            string fivem = null;
+            if (qv.Any(q => q.Installe))
+            {
+                fivem = FivemPath();
+                if (fivem == null || !FivemClosed()) return;
+            }
+            RunTask((log, p) => Core.UpdateQuantV(source, fivem, log, p));
         }
 
         void ChooseReshade()

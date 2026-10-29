@@ -31,6 +31,11 @@ UTILISATION CONSEILLEE
    En jeu, le menu ReShade s'ouvre avec la touche Debut (Home).
    Un pack peut etre installe par-dessus ReShade, inutile de le desinstaller avant :
    si le pack remplace le dxgi.dll de ReShade, celui de ReShade revient quand on retire le pack.
+5. Onglet "QuantV" : pour mettre a jour QuantV. Le logiciel trouve QuantV dans tes packs ;
+   donne-lui la nouvelle version (archive .zip/.7z/.rar, dossier ou .rpf, bouton ou glisser-
+   deposer) et il remplace les fichiers QuantV du pack. Si le pack est installe, il est
+   reinstalle tout seul. Tes reglages (.ini) sont gardes, l'ancienne version est sauvegardee
+   dans %APPDATA%\FiveMGfxManager\quantv.
 
 Les sauvegardes sont dans %APPDATA%\FiveMGfxManager
 

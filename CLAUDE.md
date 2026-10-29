@@ -40,12 +40,13 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Core/Core.Scan.cs` | Recherche des sons d'armes déjà présents avant un pack son (`FindWeaponSounds`, lecteur RPF7 non chiffré `RpfEntries`) |
 | `Core/Core.Backup.cs` | Sauvegarde et restauration d'origine |
 | `Core/Core.Reshade.cs` | Téléchargement / installation / désinstallation de ReShade |
-| `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Sauvegarde / ReShade, liste de packs + détails, journal). Les opérations tournent en arrière-plan (`Task.Run`) |
+| `Core/Core.QuantV.cs` | Onglet QuantV : repère QuantV dans les packs et le remplace par une nouvelle version |
+| `UI/MainForm.cs` | Interface WinForms (barre latérale + pages Packs / Mods / Sauvegarde / ReShade / QuantV, liste de packs + détails, journal). Les opérations tournent en arrière-plan (`Task.Run`) |
 | `UI/Theme.cs`, `UI/Widgets.cs` | Couleurs du thème sombre, contrôles dessinés à la main (boutons, segments, `DarkListView`…) |
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (68 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (75 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement
@@ -108,6 +109,11 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   la même page que Packs (même `Body`), filtrée par `ModsView`. `NormalizePack(..., mod: true)` ne range
   pas de fichiers dans citizen : seuls les `.rpf` sont gardés (chemin GTA, sinon racine de `mods\`,
   même sans GTA V) ; un mod sans `.rpf` est refusé. Le type d'un mod ne se change pas.
+- **Onglet QuantV** : `FindQuantV()` liste les packs de la bibliothèque dont un fichier contient « quantv ».
+  `UpdateQuantV(source, …)` range la source (`StageSource`), exige un fichier QuantV, puis pour chaque pack :
+  retire le pack s'il est installé, sauvegarde les anciens fichiers QuantV dans `quantv\<date>\`, supprime
+  les anciens fichiers QuantV des dossiers fournis par la nouvelle version (ex. rpf renommé), copie le
+  reste (les `.ini` déjà présents sont gardés : réglages), et réinstalle le pack.
 - **Restaurer d'origine** : supprime citizen/mods/plugins et recopie la sauvegarde. Remet aussi à
   zéro l'état du pack et de ReShade.
 - **ReShade** : lit reshade.me et cherche `/downloads/ReShade_Setup_X.Y.Z.exe` (version normale,

@@ -58,6 +58,17 @@ class T {
     var wp=Core.ImportPack(S+"/weapons.rpf","Armes",log,pr);
     Check(File.Exists(S+"/appdata/bibliotheque/"+wp.Id+"/contenu/mods/weapons.rpf"), ".rpf au nom absent de GTA V pose a la racine de mods (pack FiveM)");
     Core.DeleteFromLibrary(wp.Id,log);
+    // fichiers seuls a mettre dans citizen\common\data (BloodFX, kill effects, roue des armes, map, no water)
+    W(S+"/cit/BloodFX/core.ypt","SANG"); W(S+"/cit/Kill Effect/timecycle_mods_4.xml","KILL"); W(S+"/cit/Roue/hud.gfx","ROUE");
+    W(S+"/cit/Map/ui/minimap.ytd","MAP"); W(S+"/cit/lisezmoi.txt","x");
+    var cit=Core.ImportPack(S+"/cit","Graphique",log,pr); string cc=S+"/appdata/bibliotheque/"+cit.Id+"/contenu/citizen/common/data/";
+    Check(R(cc+"effects/core.ypt")=="SANG" && R(cc+"timecycle/timecycle_mods_4.xml")=="KILL" && R(cc+"ui/hud.gfx")=="ROUE" && R(cc+"ui/minimap.ytd")=="MAP"
+          && Directory.GetFiles(S+"/appdata/bibliotheque/"+cit.Id+"/contenu","*",SearchOption.AllDirectories).Length==4, "BloodFX, kill effect, roue des armes, map ranges dans citizen/common/data");
+    Core.DeleteFromLibrary(cit.Id,log);
+    W(S+"/eau/No Water/water.xml","SEC"); W(S+"/eau/No Water/LISEZMOI.txt","x");
+    Core.InstallPack(S+"/eau",app,log,pr); Check(R(app+"/citizen/common/data/levels/gta5/water.xml")=="SEC", "no water : water.xml dans citizen/common/data/levels/gta5");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Check(!Directory.Exists(app+"/citizen/common/data/levels") && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "retrait du no water propre");
     Core.InstallLibraryPack(g.Id,app,log,pr); Core.InstallLibraryPack(son.Id,app,log,pr); Core.InstallLibraryPack(arm.Id,app,log,pr);
     Check(Core.InstalledPacks().Count==3 && R(app+"/citizen/common/data/timecycle.xml")=="MOD", "3 packs installes ensemble");
     Check(R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON" && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf"), "pack son pose dans GTA V/x64/audio (FiveM ne lit pas ces sons dans mods)");

@@ -45,7 +45,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 | `Program.cs` | Point d'entrée : DPI, TLS 1.2/1.3, styles visuels |
 | `FiveMGfxManager.csproj` | net48, WinExe, SharpCompress 0.50.7, Costura.Fody 6.2.0, versions des dépendances System.* fixées |
 | `app.manifest`, `Assets/icon.ico` | Manifeste Windows (asInvoker), icône |
-| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (61 vérifications) |
+| `tests/FiveMGfxManager.Tests/` | Programme de test en .NET 8 qui compile les fichiers `Core/` (64 vérifications) |
 | `docs/LISEZMOI.txt` | Notice livrée dans le zip de la release |
 
 ### Fonctionnement
@@ -99,6 +99,11 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   autres). Les chemins du manifeste restent `mods/x64/...`. Ancien manifeste sans `DossierGta` :
   tout reste dans FiveM.app. `RestoreOriginalBackup` remet d'abord les sons de GTA V des packs
   installés. `FindWeaponSounds` signale une copie restée dans `FiveM.app\mods\x64\audio` (déplaçable).
+- **Fichiers seuls pour citizen** : sans dossier citizen/mods/plugins ni x64/update, `NormalizePack`
+  range les fichiers non-.rpf via `LooseCitizenPath` dans `citizen/common/data/` (chemin `…common/data/…`
+  du pack, sinon dossier `effects`/`timecycle`/`ui`/`gta5`, sinon règles : `.ypt` → effects,
+  `.gfx`/`frontend.xml` → ui, `water.xml` → levels/gta5, `*timecycle*.xml` → timecycle). Seules les
+  extensions `CitizenExts` sont prises (pas les lisezmoi). Ils peuvent être mélangés avec des `.rpf`.
 - **Restaurer d'origine** : supprime citizen/mods/plugins et recopie la sauvegarde. Remet aussi à
   zéro l'état du pack et de ReShade.
 - **ReShade** : lit reshade.me et cherche `/downloads/ReShade_Setup_X.Y.Z.exe` (version normale,

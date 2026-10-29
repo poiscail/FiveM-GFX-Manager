@@ -179,6 +179,16 @@ namespace FiveMGfxManager
                 }
                 else
                 {
+                    var citizen = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+                                           .Where(f => !f.EndsWith(".rpf", StringComparison.OrdinalIgnoreCase))
+                                           .Select(f => (rel: LooseCitizenPath(f, folder), src: f))
+                                           .Where(x => x.rel != null).ToList();
+                    if (citizen.Count > 0)
+                    {
+                        files.AddRange(citizen);
+                        log($"{citizen.Count} fichier(s) placé(s) dans citizen\\common\\data : " +
+                            string.Join(", ", citizen.Select(x => x.rel.Substring(CitizenData.Length))));
+                    }
                     var rpfs = Directory.EnumerateFiles(folder, "*.rpf", SearchOption.AllDirectories).ToList();
                     if (rpfs.Count > 0)
                     {
@@ -216,12 +226,8 @@ namespace FiveMGfxManager
                         if (addons.Count > 0)
                             log($"{addons.Count} pack(s) .rpf pour FiveM (nom absent de GTA V) posé(s) dans mods\\ : " +
                                 string.Join(", ", addons.Select(Path.GetFileName)));
-                        var dup = files.GroupBy(f => f.rel.ToLowerInvariant()).FirstOrDefault(g => g.Count() > 1);
-                        if (dup != null)
-                            throw new GfxException($"Deux fichiers s'appellent « {Path.GetFileName(dup.Key)} » dans le pack.\n" +
-                                                   "Décompresse-le toi-même et range-le dans un dossier « mods ».");
                     }
-                    else if (Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+                    else if (citizen.Count == 0 && Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
                                       .Any(f => RawGameExts.Contains(Path.GetExtension(f).ToLowerInvariant())))
                     {
                         throw new GfxException("Ce pack contient des fichiers GTA V « bruts » (.ytd, .yft, .awc…) " +
@@ -229,7 +235,7 @@ namespace FiveMGfxManager
                                                "il faut d'abord les mettre dans un .rpf avec OpenIV,\n" +
                                                "ou utiliser une version du mod faite pour FiveM.");
                     }
-                    else
+                    else if (citizen.Count == 0)
                     {
                         throw new GfxException("Impossible de trouver un dossier « citizen », « mods » ou « plugins », " +
                                                "ni de fichier .rpf dans le pack.\nCe pack n'a pas la structure attendue pour FiveM.app.");
@@ -237,6 +243,10 @@ namespace FiveMGfxManager
                 }
             }
             if (files.Count == 0) throw new GfxException("Le pack ne contient aucun fichier.");
+            var dup = files.GroupBy(f => f.rel.ToLowerInvariant()).FirstOrDefault(g => g.Count() > 1);
+            if (dup != null)
+                throw new GfxException($"Deux fichiers s'appellent « {Path.GetFileName(dup.Key)} » dans le pack.\n" +
+                                       "Décompresse-le toi-même et range-le dans un dossier « citizen » ou « mods ».");
             foreach (var (rel, src) in files)
                 CopyFile(src, P(dest, rel));
             return files.Select(f => f.rel).ToList();
@@ -300,6 +310,36 @@ namespace FiveMGfxManager
             return null;
         }
 
+
+        // Fichiers seuls qui vont dans citizen\common\data (guides FiveM) :
+        //  BloodFX (.ypt) → effects\, kill effects (timecycle…xml) → timecycle\, roue des armes et
+        //  position de la map (.gfx, frontend.xml…) → ui\, no water (water.xml) → levels\gta5\.
+        // Un dossier du pack nommé comme la destination (…\common\data\…, effects, timecycle, ui, gta5) l'emporte.
+        static readonly string[] UiXml = { "frontend.xml", "pausemenu.xml", "hud.xml", "minimap.xml" };
+        const string CitizenData = "citizen/common/data/";
+        static readonly string[] CitizenExts = { ".ypt", ".xml", ".gfx", ".ytd", ".dat", ".meta", ".ymt" };
+
+        static string LooseCitizenPath(string file, string packFolder)
+        {
+            string rel = RelPath(packFolder, file), name = Path.GetFileName(file), lower = name.ToLowerInvariant();
+            if (!CitizenExts.Contains(Path.GetExtension(lower))) return null; // lisezmoi, images…
+            int at = rel.IndexOf("common/data/", StringComparison.OrdinalIgnoreCase);
+            if (at >= 0) return CitizenData + rel.Substring(at + "common/data/".Length);
+            var dirs = rel.ToLowerInvariant().Split('/').Reverse().Skip(1).ToList();
+            foreach (var d in dirs)
+            {
+                if (d == "effects") return CitizenData + "effects/" + name;
+                if (d == "timecycle") return CitizenData + "timecycle/" + name;
+                if (d == "ui") return CitizenData + "ui/" + name;
+                if (d == "gta5") return CitizenData + "levels/gta5/" + name;
+            }
+            string ext = Path.GetExtension(lower);
+            if (ext == ".ypt") return CitizenData + "effects/" + name;
+            if (ext == ".gfx" || UiXml.Contains(lower)) return CitizenData + "ui/" + name;
+            if (lower == "water.xml") return CitizenData + "levels/gta5/" + name;
+            if (ext == ".xml" && lower.Contains("timecycle")) return CitizenData + "timecycle/" + name;
+            return null;
+        }
         // Dossier le moins profond qui contient x64\ ou update\ avec des .rpf dedans
         static string FindGameRoot(string folder)
         {

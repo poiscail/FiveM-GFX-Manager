@@ -181,6 +181,67 @@ class T {
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
     Check(!File.Exists(app+"/plugins/dxgi.dll") && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "puis retrait du pack : plus de dll");
     Check(!Directory.Exists(app+"/plugins") || !Directory.EnumerateFiles(app+"/plugins","*",SearchOption.AllDirectories).Any(), "plugins vide a la fin");
+    // --- profils graphiques ---
+    string gs=S+"/citizenfx/gta5_settings.xml"; Environment.SetEnvironmentVariable("FIVEM_GFX_SETTINGS", gs);
+    var keys=new[]{"Tessellation","LodScale","PedLodBias","VehicleLodBias","ShadowQuality","ReflectionQuality","ReflectionMSAA","SSAO",
+      "AnisotropicFiltering","MSAA","TextureQuality","ParticleQuality","WaterQuality","GrassQuality","ShaderQuality","Shadow_SoftShadows",
+      "Shadow_Distance","Shadow_LongShadows","Shader_SSA","CityDensity","PedVarietyMultiplier","VehicleVarietyMultiplier","PostFX","DoF",
+      "HdStreamingInFlight","MaxLodScale","MotionBlurStrength","FXAA_Enabled","TXAA_Enabled","VSync"};
+    W(gs,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<Settings>\n  <configSource>SMC_AUTO</configSource>\n  <graphics>\n"+
+         string.Concat(keys.Select(k=>"    <"+k+" value=\"7\" />\n"))+"  </graphics>\n</Settings>\n");
+    string orig=File.ReadAllText(gs);
+    Check(Core.CurrentGraphicsProfile()==null && !Core.HasGraphicsBackup(), "reglages perso : aucun profil reconnu");
+    Core.ApplyGraphicsProfile("Performance",log);
+    Check(R(gs).Contains("<GrassQuality value=\"0\"") && R(gs).Contains("<MotionBlurStrength value=\"0.000000\"") && R(gs).Contains("SMC_USER"), "profil Performance ecrit");
+    Check(Core.CurrentGraphicsProfile()=="Performance" && Core.HasGraphicsBackup(), "profil Performance reconnu, origine sauvegardee");
+    Core.ApplyGraphicsProfile("Qualité",log);
+    Check(Core.CurrentGraphicsProfile()=="Qualité" && R(gs).Contains("<Shadow_LongShadows value=\"true\""), "profil Qualite ecrit");
+    Core.RestoreGraphics(log);
+    Check(File.ReadAllText(gs)==orig && Core.HasGraphicsBackup(), "reglages d'origine remis");
+
+    // --- presets ReShade ---
+    string pl=app+"/plugins", sh=pl+"/reshade-shaders/Shaders";
+    W(pl+"/ReShade.ini","[GENERAL]\nEffectSearchPaths=.\\reshade-shaders\\Shaders\\**\nPresetPath=.\\A.ini\n");
+    W(pl+"/A.ini","Techniques=Bloom@Bloom.fx,Sharp@qUINT_sharp.fx\n\n[Bloom.fx]\nX=1\n");
+    W(pl+"/B.ini","Techniques = Vignette@Vignette.fx\n"); // espaces comme certains presets
+    W(pl+"/notes.ini","[x]\ny=1\n");
+    W(sh+"/Bloom.fx","#include \"ReShade.fxh\"\n"); W(sh+"/ReShade.fxh","//"); W(sh+"/Vignette.fx","//");
+    W(sh+"/qUINT/qUINT_sharp.fx","#include \"qUINT_common.fxh\""); W(sh+"/Commun/qUINT_common.fxh","//");
+    W(sh+"/Inutile/Truc.fx","//"); W(sh+"/Inutile2/sous/Machin.fx","//");
+    var ps=Core.ListReshadePresets(app);
+    Check(ps.Select(p=>p.Nom).SequenceEqual(new[]{"A.ini","B.ini"}) && ps[0].Actif && !ps[1].Actif && ps[0].Effets==2, "presets listes (ReShade.ini et autres .ini exclus)");
+    Core.SetActivePreset(app,"B.ini",log);
+    Check(Core.ActivePresetName(app)=="B.ini" && R(pl+"/ReShade.ini").Contains("EffectSearchPaths"), "preset active, reste du ReShade.ini garde");
+    Check(Core.DuplicatePreset(app,"A.ini","A perso",log)=="A perso.ini" && R(pl+"/A perso.ini")==R(pl+"/A.ini"), "preset duplique");
+    try { Core.DuplicatePreset(app,"A.ini","A perso",log); Check(false,"dup"); } catch(GfxException){ Check(true, "copie au meme nom refusee"); }
+    Core.SetReshadePerformanceMode(app,true,log);
+    Check(Core.ReshadePerformanceMode(app) && R(pl+"/ReShade.ini").Contains("PerformanceMode=1"), "mode performance active");
+    Check(Core.UnusedShaderFolders(app).SequenceEqual(new[]{"Inutile","Inutile2"}), "dossiers de shaders inutilises trouves (#include suivis)");
+    Check(Core.RetireUnusedShaders(app,log)==2 && !Directory.Exists(sh+"/Inutile") && Core.RetiredShaderFolders().Count==2, "shaders inutilises ranges");
+    Core.RestoreRetiredShaders(app,log);
+    Check(File.Exists(sh+"/Inutile2/sous/Machin.fx") && Core.RetiredShaderFolders().Count==0, "shaders ranges remis");
+
+    // --- profils complets ---
+    Core.ApplyGraphicsProfile("Équilibré",log);
+    var lp=Core.ListLibrary()[0];
+    Core.InstallLibraryPack(lp.Id,app,log,pr);
+    Core.SaveCurrentAsProfile("RP",app,log);
+    Check(Core.ListProfiles().Single().Packs.Single()==lp.Id && Core.ListProfiles()[0].Preset=="B.ini", "profil enregistre (pack + preset)");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Core.SetActivePreset(app,"A.ini",log); Core.SetReshadePerformanceMode(app,false,log); Core.ApplyGraphicsProfile("Performance",log);
+    Core.ApplyProfile("RP",app,log,pr);
+    Check(Core.IsInstalled(lp.Id) && Core.ActivePresetName(app)=="B.ini" && Core.ReshadePerformanceMode(app) && Core.CurrentGraphicsProfile()=="Équilibré",
+          "profil applique : pack, preset, mode perf et graphismes remis");
+    Environment.SetEnvironmentVariable("FIVEM_GFX_VRAM","0.000000001");
+    Check(Core.InstalledSize(false)>0 && Core.HeavyModsWarning()!=null, "alerte VRAM quand les packs pesent trop");
+    Environment.SetEnvironmentVariable("FIVEM_GFX_VRAM","64");
+    Check(Core.HeavyModsWarning()==null, "pas d'alerte avec assez de VRAM");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
+    Core.DeleteProfile("RP");
+    Check(Core.ListProfiles().Count==0, "profil supprime");
+    Core.RestoreGraphics(log);
+    Directory.Delete(pl,true);
+
     // ancienne config (un seul pack) convertie
     File.WriteAllText(S+"/appdata/config.json","{\"PackInstalle\":{\"Date\":\"d\",\"Id\":\"old\",\"Nom\":\"Vieux\"}}");
     Check(Core.InstalledPacks().Single().Nom=="Vieux", "ancienne config convertie");

@@ -24,6 +24,13 @@ Logiciel Windows (aucune installation nécessaire) pour :
 - onglet **QuantV** : trouve QuantV dans les packs de la bibliothèque et le remplace par la nouvelle
   version donnée (archive, dossier ou `.rpf`) ; un pack installé est réinstallé, les réglages `.ini`
   sont gardés et l'ancienne version est sauvegardée ;
+- onglet **Graphismes** : trois profils de réglages GTA (Performance / Équilibré / Qualité) écrits dans
+  `%APPDATA%\CitizenFX\gta5_settings.xml` ; les réglages d'origine sont sauvegardés et peuvent être remis ;
+- onglet **Presets ReShade** : liste les presets de `FiveM.app\plugins`, choisit le preset actif, le duplique,
+  active le mode performance de ReShade et range les dossiers de shaders utilisés par aucun preset (restaurables) ;
+- onglet **Profils** : enregistre la config actuelle (packs installés, preset, mode performance, graphismes)
+  et la remet d'un clic ;
+- taille des packs / mods installés et alerte quand ils pèsent plus de la moitié de la mémoire vidéo ;
 - vider le cache FiveM.
 
 Formats de packs acceptés : arborescence `citizen` / `mods` / `plugins`, format GTA `x64/...`
@@ -63,8 +70,10 @@ dotnet run -c Release -- <dossier-de-test>
 src/FiveMGfxManager/
   Core/   Core.cs (config, chemins FiveM / GTA V), Core.Archives.cs (décompression, normalisation),
           Core.Install.cs (packs), Core.Library.cs (bibliothèque), Core.Backup.cs, Core.Reshade.cs,
-          Core.QuantV.cs (mise à jour de QuantV)
-  UI/     MainForm.cs (interface), Theme.cs (couleurs), Widgets.cs (contrôles dessinés)
+          Core.QuantV.cs (mise à jour de QuantV), Core.Graphics.cs (profils graphiques),
+          Core.Presets.cs (presets ReShade, shaders), Core.Profiles.cs (profils complets, VRAM)
+  UI/     MainForm.cs (interface), MainForm.Tools.cs (pages Graphismes / Presets / Profils),
+          Theme.cs (couleurs), Widgets.cs (contrôles dessinés)
   Program.cs, Assets/icon.ico, app.manifest
 tests/FiveMGfxManager.Tests/   tests de la logique
 docs/LISEZMOI.txt              notice livrée avec le .exe

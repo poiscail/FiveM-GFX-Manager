@@ -9,7 +9,7 @@ using System.Windows.Forms;
 
 namespace FiveMGfxManager
 {
-    public class MainForm : Form
+    public partial class MainForm : Form
     {
         // Ligne de la liste des packs : un pack de la bibliothèque et/ou son installation
         class PackRow
@@ -113,6 +113,23 @@ namespace FiveMGfxManager
                 Title = "QuantV", Body = BuildQuantVPage(),
                 Subtitle = "Met à jour QuantV dans tes packs avec une nouvelle version (archive, dossier ou .rpf).",
                 Nav = new FlatButton("QuantV", Glyph.Update, ButtonKind.Nav),
+            });
+            pages.Add(new Page
+            {
+                Title = "Graphismes", Body = BuildGraphicsPage(),
+                Subtitle = "Réglages graphiques du jeu en un clic (fichier gta5_settings.xml de FiveM).",
+                Nav = new FlatButton("Graphismes", Glyph.Graphics, ButtonKind.Nav),
+            });
+            pages.Add(presetsPage = new Page
+            {
+                Title = "Presets ReShade", Body = BuildPresetsPage(),
+                Nav = new FlatButton("Presets ReShade", Glyph.Presets, ButtonKind.Nav),
+            });
+            pages.Add(new Page
+            {
+                Title = "Profils", Body = BuildProfilesPage(),
+                Subtitle = "Packs + preset ReShade + graphismes enregistrés ensemble, remis d'un clic (ex. RP, PvP).",
+                Nav = new FlatButton("Profils", Glyph.Profiles, ButtonKind.Nav),
             });
 
             // la zone principale est ajoutée avant la barre latérale pour être placée à sa droite
@@ -705,7 +722,12 @@ namespace FiveMGfxManager
                 page.Subtitle = (lib == 0 ? "Bibliothèque vide" : $"{lib} {noun}{(lib > 1 ? "s" : "")} dans la bibliothèque") + "  ·  " +
                                 (inst.Count == 0 ? "aucun installé"
                                     : $"installé{(inst.Count > 1 ? "s" : "")} : {string.Join(", ", inst)}");
+                long size = Core.InstalledSize(mods);
+                if (size > 0) page.Subtitle += $"  ·  {Core.HumanSize(size)} installés";
             }
+            // poids total des packs et mods installés comparé à la mémoire de la carte graphique
+            string heavy = Core.HeavyModsWarning();
+            if (heavy != null) modsPage.Subtitle += "\n" + heavy;
             pageSubtitle.Text = current?.Subtitle;
         }
 
@@ -936,6 +958,9 @@ namespace FiveMGfxManager
                                "Aucun pack de la bibliothèque ne contient QuantV. Ajoute-le d'abord dans l'onglet Packs.");
                 quantvList.Text = "Aucun.";
             }
+            RefreshGraphics();
+            RefreshPresets();
+            RefreshProfiles();
         }
 
         static string Clean(string s) => (s ?? "").Trim().Trim('"');

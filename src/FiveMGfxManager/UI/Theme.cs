@@ -138,6 +138,11 @@ namespace FiveMGfxManager
         public const string Packs = "";
         public const string Mods = "\uEA86";
         public const string Update = "\uE895";
+        public const string Graphics = "\uE7F4";
+        public const string Presets = "\uE790";
+        public const string Profiles = "\uE77B";
+        public const string Play = "\uE768";
+        public const string Copy = "\uE8C8";
         public const string Backup = "";
         public const string Reshade = "";
         public const string Game = "";

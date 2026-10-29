@@ -36,6 +36,16 @@ UTILISATION CONSEILLEE
    deposer) et il remplace les fichiers QuantV du pack. Si le pack est installe, il est
    reinstalle tout seul. Tes reglages (.ini) sont gardes, l'ancienne version est sauvegardee
    dans %APPDATA%\FiveMGfxManager\quantv.
+6. Onglet "Graphismes" (FiveM ferme) : Performance, Equilibre ou Qualite regle les options
+   graphiques du jeu d'un clic. Tes reglages d'origine sont sauvegardes la premiere fois :
+   "Remettre mes reglages d'origine" les remet.
+7. Onglet "Presets ReShade" : choisis le preset actif (double-clic), duplique-le pour faire
+   tes essais. "Mode performance" = plus de FPS (desactive-le pour modifier le preset en jeu).
+   "Ranger les shaders inutilises" met de cote les shaders qu'aucun preset n'utilise :
+   ReShade charge plus vite. "Remettre les shaders ranges" les remet.
+8. Onglet "Profils" : installe tes packs, choisis preset et graphismes puis
+   "Enregistrer la config actuelle". "Appliquer le profil" remet tout d'un clic
+   (packs en trop retires, packs manquants installes, preset et graphismes remis).
 
 Les sauvegardes sont dans %APPDATA%\FiveMGfxManager
 

@@ -29,6 +29,7 @@ namespace FiveMGfxManager
         public static Color TypeColor(string type) =>
             type == "Son" ? Color.FromArgb(45, 212, 191)
             : type == "Armes" ? Color.FromArgb(248, 113, 113)
+            : type == Core.ModType ? Color.FromArgb(251, 191, 36)
             : Color.FromArgb(167, 139, 250);
 
         static readonly HashSet<string> Installed = InstalledFonts();
@@ -135,6 +136,7 @@ namespace FiveMGfxManager
     static class Glyph
     {
         public const string Packs = "";
+        public const string Mods = "\uEA86";
         public const string Backup = "";
         public const string Reshade = "";
         public const string Game = "";

@@ -69,6 +69,14 @@ class T {
     Core.InstallPack(S+"/eau",app,log,pr); Check(R(app+"/citizen/common/data/levels/gta5/water.xml")=="SEC", "no water : water.xml dans citizen/common/data/levels/gta5");
     Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr);
     Check(!Directory.Exists(app+"/citizen/common/data/levels") && R(app+"/citizen/common/data/timecycle.xml")=="ORIG", "retrait du no water propre");
+    // onglet Mods : seuls les .rpf sont gardes, et ils vont dans FiveM.app\mods
+    W(S+"/routes/Custom Roads/roads.rpf","ROUTE"); W(S+"/routes/Custom Roads/hud.gfx","x"); W(S+"/routes/lisezmoi.txt","x");
+    var mod=Core.ImportPack(S+"/routes",Core.ModType,log,pr); string mc=S+"/appdata/bibliotheque/"+mod.Id+"/contenu";
+    Check(mod.Type=="Mod" && R(mc+"/mods/roads.rpf")=="ROUTE" && Directory.GetFiles(mc,"*",SearchOption.AllDirectories).Length==1, "mod : seul le .rpf est garde, a la racine de mods");
+    Core.InstallLibraryPack(mod.Id,app,log,pr); Check(R(app+"/mods/roads.rpf")=="ROUTE" && !File.Exists(app+"/citizen/common/data/ui/hud.gfx"), "mod installe dans FiveM.app/mods");
+    Core.UninstallPack(Core.InstalledPacks().Single().Id,app,log,pr); Core.DeleteFromLibrary(mod.Id,log);
+    Check(!File.Exists(app+"/mods/roads.rpf") && Core.ListLibrary().Count==3, "mod retire et supprime proprement");
+    try { Core.ImportPack(S+"/eau",Core.ModType,log,pr); Check(false,"mod sans rpf"); } catch(GfxException e){ Check(e.Message.Contains(".rpf") && Core.ListLibrary().Count==3, "mod sans .rpf refuse"); }
     Core.InstallLibraryPack(g.Id,app,log,pr); Core.InstallLibraryPack(son.Id,app,log,pr); Core.InstallLibraryPack(arm.Id,app,log,pr);
     Check(Core.InstalledPacks().Count==3 && R(app+"/citizen/common/data/timecycle.xml")=="MOD", "3 packs installes ensemble");
     Check(R(S+"/gta/x64/audio/sfx/RESIDENT.rpf")=="SON" && !File.Exists(app+"/mods/x64/audio/sfx/RESIDENT.rpf"), "pack son pose dans GTA V/x64/audio (FiveM ne lit pas ces sons dans mods)");

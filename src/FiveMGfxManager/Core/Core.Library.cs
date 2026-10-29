@@ -55,7 +55,7 @@ namespace FiveMGfxManager
             try
             {
                 string folder = OpenSource(source, work, log, p => progress(p * 0.7));
-                var files = NormalizePack(folder, Path.Combine(dir, "contenu"), log);
+                var files = NormalizePack(folder, Path.Combine(dir, "contenu"), log, type == ModType);
                 string sig = ContentSignature(Path.Combine(dir, "contenu"));
                 var same = ListLibrary().FirstOrDefault(o => o.Id != id && ContentSignature(LibraryContent(o.Id)) == sig);
                 if (same != null)
@@ -89,7 +89,7 @@ namespace FiveMGfxManager
                 throw new GfxException($"Le pack « {pack.Nom} » est installé. Retire-le avant de lui ajouter des mods.");
             WithTempDir(work =>
             {
-                string staged = StageSource(source, work, log, p => progress(p * 0.6));
+                string staged = StageSource(source, work, log, p => progress(p * 0.6), pack.Type == ModType);
                 var files = ListFiles(staged);
                 string content = LibraryContent(id);
                 int replaced = files.Count(rel => File.Exists(P(content, rel)));

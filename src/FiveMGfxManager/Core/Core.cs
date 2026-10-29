@@ -112,6 +112,9 @@ namespace FiveMGfxManager
 
         public static readonly string[] PackTypes = { "Graphique", "Son", "Armes" };
 
+        // Type des mods (onglet Mods) : leurs .rpf vont dans FiveM.app\mods
+        public const string ModType = "Mod";
+
         // Fichiers GTA V « bruts » : FiveM ne les charge pas dans mods\ s'ils ne sont pas dans un .rpf
         static readonly string[] RawGameExts =
             { ".ytd", ".ydr", ".yft", ".ydd", ".ytyp", ".ymap", ".ybn", ".awc", ".oac", ".rel", ".meta", ".gxt2" };

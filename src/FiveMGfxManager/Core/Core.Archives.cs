@@ -116,10 +116,10 @@ namespace FiveMGfxManager
         }
 
         // Décompresse et range source dans work\range, puis renvoie ce dossier.
-        static string StageSource(string source, string work, Action<string> log, Action<double> progress)
+        static string StageSource(string source, string work, Action<string> log, Action<double> progress, bool mod = false)
         {
             string staged = Path.Combine(work, "range");
-            NormalizePack(OpenSource(source, work, log, progress), staged, log);
+            NormalizePack(OpenSource(source, work, log, progress), staged, log, mod);
             return staged;
         }
 
@@ -146,7 +146,8 @@ namespace FiveMGfxManager
         //  - pack avec citizen / mods / plugins : copié tel quel ;
         //  - pack « OpenIV » avec x64\… ou update\… (sons, armes) : mis dans mods\ en gardant le chemin ;
         //  - fichiers .rpf seuls : mis dans mods\.
-        static List<string> NormalizePack(string folder, string dest, Action<string> log)
+        // Un mod (mod = true) ne garde que ses .rpf : ses autres fichiers seuls ne vont pas dans citizen.
+        static List<string> NormalizePack(string folder, string dest, Action<string> log, bool mod = false)
         {
             var files = new List<(string rel, string src)>();
             var (root, found) = TryFindPackRoot(folder);
@@ -179,7 +180,7 @@ namespace FiveMGfxManager
                 }
                 else
                 {
-                    var citizen = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+                    var citizen = mod ? new List<(string rel, string src)>() : Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
                                            .Where(f => !f.EndsWith(".rpf", StringComparison.OrdinalIgnoreCase))
                                            .Select(f => (rel: LooseCitizenPath(f, folder), src: f))
                                            .Where(x => x.rel != null).ToList();
@@ -198,7 +199,8 @@ namespace FiveMGfxManager
                         var placed = rpfs.Select(f => (f, rel: LooseRpfPath(f, folder, gta))).ToList();
                         // un nom qui n'existe pas dans GTA V est un pack de mods pour FiveM (ex : aQuantV.rpf) :
                         // FiveM charge tout .rpf posé à la racine de mods\
-                        var addons = gta.Count == 0 ? new List<string>() : placed
+                        // (un mod sans GTA V trouvé : posé à la racine de mods\ aussi)
+                        var addons = gta.Count == 0 && !mod ? new List<string>() : placed
                             .Where(x => x.rel == null && !gta.ContainsKey(Path.GetFileName(x.f))).Select(x => x.f).ToList();
                         placed = placed.Select(x => addons.Contains(x.f) ? (f: x.f, rel: "mods/" + Path.GetFileName(x.f)) : x).ToList();
                         var unknown = placed.Where(x => x.rel == null).Select(x => Path.GetFileName(x.f))
@@ -234,6 +236,11 @@ namespace FiveMGfxManager
                                                "qui ne sont pas dans un .rpf.\nFiveM ne peut pas les charger tels quels : " +
                                                "il faut d'abord les mettre dans un .rpf avec OpenIV,\n" +
                                                "ou utiliser une version du mod faite pour FiveM.");
+                    }
+                    else if (mod)
+                    {
+                        throw new GfxException("Aucun fichier .rpf ni dossier « mods » dans ce mod.\n" +
+                                               "Seuls les .rpf vont dans FiveM.app\\mods : ajoute-le plutôt comme pack.");
                     }
                     else if (citizen.Count == 0)
                     {

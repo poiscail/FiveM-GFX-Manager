@@ -16,6 +16,9 @@ UTILISATION CONSEILLEE
    bibliotheque. Selectionne un pack -> "Installer". Plusieurs packs peuvent etre installes
    en meme temps (ex. un graphique + un son + des armes).
    "Ajouter des mods au pack..." ajoute d'autres fichiers a un pack de la bibliotheque.
+   Onglet "Mods" : meme chose pour les mods seuls (routes, tracers, effets de
+   feu...). Ajoute tes .rpf / archives, selectionne un mod -> "Installer" :
+   ses .rpf vont dans FiveM.app\mods. Il s'installe a cote des packs.
 3. Pour revenir en arriere : "Retirer de FiveM", ou "Restaurer FiveM d'origine".
    On peut selectionner plusieurs packs (Ctrl + clic) puis les retirer d'un coup ;
    clic droit sur un pack ou touche Suppr pour aller plus vite.

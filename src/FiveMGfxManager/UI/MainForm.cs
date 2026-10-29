@@ -43,8 +43,11 @@ namespace FiveMGfxManager
         readonly ToolTip tips = new ToolTip();
         readonly List<FlatButton> actionButtons = new List<FlatButton>();
         readonly List<Page> pages = new List<Page>();
-        Page current;
+        Page current, modsPage;
         bool busy;
+        bool ModsView => current == modsPage;
+        string Noun => ModsView ? "mod" : "pack";
+        readonly Label typeLabel = Lbl("Type :", Theme.Muted, new Padding(0, 0, 10, 0));
 
         // Détails du pack sélectionné
         readonly Label detailEmpty = new Label();
@@ -80,10 +83,17 @@ namespace FiveMGfxManager
             var cfg = Core.LoadConfig();
             fivemBox.Text = cfg.FivemApp ?? Core.DetectFivemApp() ?? "";
 
+            var packBody = BuildPackPage();
             pages.Add(new Page
             {
-                Title = "Packs", Body = BuildPackPage(),
+                Title = "Packs", Body = packBody,
                 Nav = new FlatButton("Packs", Glyph.Packs, ButtonKind.Nav),
+            });
+            // les mods utilisent la même page que les packs, filtrée sur le type Mod
+            pages.Add(modsPage = new Page
+            {
+                Title = "Mods", Body = packBody,
+                Nav = new FlatButton("Mods", Glyph.Mods, ButtonKind.Nav),
             });
             pages.Add(new Page
             {
@@ -228,7 +238,7 @@ namespace FiveMGfxManager
 
             // pages
             var host = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 0, 16) };
-            foreach (var p in pages)
+            foreach (var p in pages.Where(p => !host.Controls.Contains(p.Body)))
             {
                 p.Body.Dock = DockStyle.Fill;
                 p.Body.Visible = false;
@@ -269,14 +279,25 @@ namespace FiveMGfxManager
 
         void ShowPage(Page page)
         {
+            bool wasMods = ModsView;
             current = page;
             foreach (var p in pages)
             {
                 p.Nav.Selected = p == page;
-                p.Body.Visible = p == page;
+                p.Body.Visible = p.Body == page.Body;
             }
             pageTitle.Text = page.Title;
             pageSubtitle.Text = page.Subtitle;
+            if (wasMods != ModsView)
+            {
+                // passage Packs <-> Mods : même liste, autre filtre
+                typeLabel.Visible = typeBox.Visible = !ModsView;
+                emptyList.Text = ModsView
+                    ? "Aucun mod pour l'instant.\n\nGlisse ici tes .rpf, .zip, .7z ou .rar,\nils iront dans FiveM.app\\mods."
+                    : "Aucun pack pour l'instant.\n\nGlisse ici tes .zip, .7z, .rar ou .rpf,\nou clique sur « Ajouter des archives… ».";
+                packList.SelectedItems.Clear();
+                RefreshPackList();
+            }
         }
 
         // ---------------------------------------------------- petits outils --
@@ -342,7 +363,7 @@ namespace FiveMGfxManager
 
             // ajout à la bibliothèque
             var bar = Columns(5, fill: 4);
-            bar.Controls.Add(Lbl("Type :", Theme.Muted, new Padding(0, 0, 10, 0)), 0, 0);
+            bar.Controls.Add(typeLabel, 0, 0);
             typeBox.Anchor = AnchorStyles.Left;
             typeBox.AutoSize = true;
             typeBox.Margin = new Padding(0, 0, 14, 0);
@@ -601,7 +622,8 @@ namespace FiveMGfxManager
 
             installBtn.Visible = r.Inst == null;
             removeBtn.Visible = r.Inst != null;
-            addModsBtn.Visible = typeBtn.Visible = r.Lib != null;
+            addModsBtn.Visible = r.Lib != null;
+            typeBtn.Visible = r.Lib != null && r.Type != Core.ModType; // un mod reste un mod
             deleteBtn.Visible = r.Lib != null && r.Inst == null;
         }
 
@@ -609,7 +631,7 @@ namespace FiveMGfxManager
         {
             int inst = rows.Count(x => x.Inst != null), del = rows.Count(x => x.Lib != null && x.Inst == null);
             string names = string.Join(", ", rows.Select(x => x.Nom));
-            detailName.Text = $"{rows.Count} packs sélectionnés";
+            detailName.Text = $"{rows.Count} {Noun}s sélectionnés";
             tips.SetToolTip(detailName, string.Join("\n", rows.Select(x => x.Nom)));
             var types = rows.Select(x => x.Type).Distinct().ToList();
             detailType.Set(types.Count == 1 ? types[0] : "Plusieurs types", types.Count == 1 ? Theme.TypeColor(types[0]) : Theme.Muted);
@@ -641,6 +663,8 @@ namespace FiveMGfxManager
             // packs installés sans passer par la bibliothèque (anciennes versions du logiciel)
             rows.AddRange(installed.Where(i => i.LibId == null || rows.All(r => r.Lib.Id != i.LibId))
                                    .Select(i => new PackRow { Inst = i }));
+            var all = rows;
+            rows = all.Where(r => (r.Type == Core.ModType) == ModsView).ToList();
 
             packList.BeginUpdate();
             packList.Items.Clear();
@@ -666,11 +690,16 @@ namespace FiveMGfxManager
             if (emptyList.Visible) emptyList.BringToFront();
             ShowDetails();
 
-            int lib = rows.Count(r => r.Lib != null);
-            pages[0].Subtitle = (lib == 0 ? "Bibliothèque vide" : $"{lib} pack{(lib > 1 ? "s" : "")} dans la bibliothèque") + "  ·  " +
-                                (installed.Count == 0 ? "aucun installé"
-                                    : $"installé{(installed.Count > 1 ? "s" : "")} : {string.Join(", ", installed.Select(i => i.Nom))}");
-            if (current == pages[0]) pageSubtitle.Text = pages[0].Subtitle;
+            foreach (var (page, mods, noun) in new[] { (pages[0], false, "pack"), (modsPage, true, "mod") })
+            {
+                var mine = all.Where(r => (r.Type == Core.ModType) == mods).ToList();
+                int lib = mine.Count(r => r.Lib != null);
+                var inst = mine.Where(r => r.Inst != null).Select(r => r.Nom).ToList();
+                page.Subtitle = (lib == 0 ? "Bibliothèque vide" : $"{lib} {noun}{(lib > 1 ? "s" : "")} dans la bibliothèque") + "  ·  " +
+                                (inst.Count == 0 ? "aucun installé"
+                                    : $"installé{(inst.Count > 1 ? "s" : "")} : {string.Join(", ", inst)}");
+            }
+            pageSubtitle.Text = current?.Subtitle;
         }
 
         PackRow SelectedRow() => packList.SelectedItems.Count > 0 ? (PackRow)packList.SelectedItems[0].Tag : null;
@@ -1016,7 +1045,7 @@ namespace FiveMGfxManager
         void Import(string[] sources)
         {
             if (sources == null || sources.Length == 0 || busy) return;
-            string type = (string)typeBox.SelectedItem;
+            string type = ModsView ? Core.ModType : (string)typeBox.SelectedItem;
             RunTask((log, p) =>
             {
                 // un fichier refusé n'empêche pas d'importer les suivants
@@ -1174,6 +1203,11 @@ namespace FiveMGfxManager
             if (r.Lib == null)
             {
                 Info("Packs", "Ce pack a été installé hors bibliothèque.");
+                return;
+            }
+            if (r.Type == Core.ModType)
+            {
+                Info("Mods", "Un mod ne peut pas devenir un pack : ajoute l'archive dans l'onglet Packs.");
                 return;
             }
             string type = PickType($"Type de « {r.Nom} »", r.Lib.Type);

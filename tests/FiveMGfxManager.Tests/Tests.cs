@@ -82,6 +82,29 @@ class T {
       string mp=S+"/appdata/bibliotheque/"+ma.Id+"/contenu/mods/mesarmes.rpf";
       Check(Core.ReadRpfFile(mp,"content/mesarmes.rpf")?.SequenceEqual(r)==true && System.Text.Encoding.UTF8.GetString(Core.ReadRpfFile(mp,"assembly.xml")).Contains("models\\cdimages\\mesarmes.rpf</add>"), "rpf sans assembly.xml mis dans un paquet");
       Core.DeleteFromLibrary(ma.Id,log); }
+    // pack de plusieurs armes : une archive par arme dans l'archive, fichier commun en double
+    { string mk=S+"/multi"; foreach (var (arme,f) in new[]{("Pistolet","w_pi_pistol.ydr"),("Carabine","w_ar_carbinerifle.ytd")}) {
+        Directory.CreateDirectory(mk+"/"+arme+"/stream"); File.WriteAllBytes(mk+"/"+arme+"/stream/"+f,Rsc(arme));
+        File.WriteAllBytes(mk+"/"+arme+"/stream/w_commun.ytd",Rsc("COMMUN")); W(mk+"/"+arme+"/fxmanifest.lua","fx_version 'cerulean'");
+        System.IO.Compression.ZipFile.CreateFromDirectory(mk+"/"+arme, S+"/multizip_"+arme+".zip"); }
+      Directory.CreateDirectory(S+"/multipack"); File.Move(S+"/multizip_Pistolet.zip",S+"/multipack/Pistolet.zip"); File.Move(S+"/multizip_Carabine.zip",S+"/multipack/Carabine.rar.zip");
+      System.IO.Compression.ZipFile.CreateFromDirectory(S+"/multipack", S+"/Pack Armes.zip");
+      var mp=Core.ImportPack(S+"/Pack Armes.zip","Armes",log,pr);
+      string pkm=S+"/appdata/bibliotheque/"+mp.Id+"/contenu/mods/gfx_pack_armes.rpf";
+      var em=Core.ReadRpfEntries(pkm)?.Select(x=>x.Path).ToList();
+      Check(em!=null && em.Contains("content/w_pi_pistol.ydr") && em.Contains("content/w_ar_carbinerifle.ytd") && em.Count(x=>x=="content/w_commun.ytd")==1, "pack de plusieurs armes (archives dans l'archive) dans un seul paquet");
+      Core.DeleteFromLibrary(mp.Id,log);
+      // deux versions differentes du meme fichier : refus qui nomme les dossiers
+      Directory.CreateDirectory(S+"/variantes/Or"); Directory.CreateDirectory(S+"/variantes/Noir");
+      File.WriteAllBytes(S+"/variantes/Or/w_pi_pistol.ytd",Rsc("OR")); File.WriteAllBytes(S+"/variantes/Noir/w_pi_pistol.ytd",Rsc("NOIR"));
+      try { Core.ImportPack(S+"/variantes","Armes",log,pr); Check(false,"variantes"); } catch(GfxException e){ Check(e.Message.Contains("Or") && e.Message.Contains("Noir"), "deux versions d'une arme refusees en nommant les dossiers"); }
+      // chemin OpenIV en dossiers : mods\update\...\dlc.rpf\x64\models\cdimages\weapons.rpf\*.ydr
+      string ov=S+"/openiv/mods/update/x64/dlcpacks/patchday8ng/dlc.rpf/x64/models/cdimages/weapons.rpf";
+      Directory.CreateDirectory(ov); File.WriteAllBytes(ov+"/w_sb_smg.ydr",Rsc("SMG"));
+      var op=Core.ImportPack(S+"/openiv","Armes",log,pr);
+      string oc=S+"/appdata/bibliotheque/"+op.Id+"/contenu";
+      Check(Core.ReadRpfEntries(oc+"/mods/gfx_openiv.rpf")?.Any(x=>x.Path=="content/w_sb_smg.ydr")==true && !Directory.Exists(oc+"/mods/update"), "chemin OpenIV en dossiers mis dans un paquet");
+      Core.DeleteFromLibrary(op.Id,log); }
     var wp=Core.ImportPack(S+"/weapons.rpf","Armes",log,pr);
     Check(File.Exists(S+"/appdata/bibliotheque/"+wp.Id+"/contenu/mods/weapons.rpf"), ".rpf au nom absent de GTA V pose a la racine de mods (pack FiveM)");
     Core.DeleteFromLibrary(wp.Id,log);

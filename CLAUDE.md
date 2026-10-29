@@ -90,7 +90,11 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   un `assembly.xml` (citizen-mod-loader-five, `ModPackage.cpp`) : les fichiers streamés seuls
   (`.ydr`, `.ytd`… `StreamExts`) vont dans un paquet `mods\gfx_<nom>.rpf`, et un `.rpf` de la racine
   sans `assembly.xml` dont la racine a des fichiers streamés est enveloppé dans un paquet
-  (`Core.Rpf.cs` : lecteur / écrivain RPF7 OPEN, `WriteModPackage`). Les autres fichiers bruts
+  (`Core.Rpf.cs` : lecteur / écrivain RPF7 OPEN, `WriteModPackage`). Ces règles valent aussi dans
+  `mods\` d'un pack et au chemin OpenIV (`NeedsPackage` : tout `.rpf` de `mods`, paquet remis à la
+  racine). Pack de plusieurs armes : archives imbriquées décompressées (`ExpandNestedArchives`, seulement
+  sans dossier citizen/mods/plugins), doublons identiques gardés une fois (`SameContent`), versions
+  différentes d'un même fichier streamé refusées, `.rpf` différents au même nom renommés `_2`. Les autres fichiers bruts
   (`.awc`, `.meta`…) sont refusés avec un message qui conseille OpenIV. Un pack au contenu identique (chemins + tailles) à un pack déjà dans
   la bibliothèque est refusé.
 - **Ajouter des mods à un pack** : fusionne dans `contenu\` (refusé si le pack est installé ;
@@ -158,7 +162,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   depuis un dossier ; restauration d'origine ; vrai téléchargement de ReShade 6.8.0 (dll de 5,2 Mo) ;
   shaders (archive locale simulée) ; désinstallation de ReShade qui remet le dll du pack ; cache ;
   refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, `.rpf` seuls rangés à
-  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.awc` bruts, `.ydr`/`.ytd` mis dans un paquet FiveM lisible, `.rpf` sans assembly.xml enveloppé, 3 packs
+  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.awc` bruts, `.ydr`/`.ytd` mis dans un paquet FiveM lisible, `.rpf` sans assembly.xml enveloppé, pack multi-armes (zip dans le zip, doublons), variantes refusées, chemin OpenIV en dossiers, 3 packs
   installés ensemble, ajout de mods sans doublon, changement de type, suppression, retrait complet
   propre) ; sons d'armes trouvés avant install (sous-dossier de mods, dans un .rpf, GTA V\mods), mis de côté puis remis ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres, et ReShade désinstallé
   pendant qu'un pack est installé par-dessus) ; `.rpf` seuls rangés grâce à un faux dossier GTA V

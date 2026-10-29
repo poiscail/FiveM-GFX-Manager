@@ -70,7 +70,13 @@ REMARQUES
   Skins d'armes en fichiers seuls (.ydr, .ytd, .yft... souvent dans un dossier "stream") :
     mis dans un paquet FiveM mods\gfx_<nom du pack>.rpf (avec assembly.xml), qui remplace
     les fichiers du jeu de meme nom. Un .rpf d'armes pose a la racine de mods sans assembly.xml
-    (ex. weapons.rpf) est ignore par FiveM : il est mis dans un paquet lui aussi.
+    (ex. weapons.rpf) est ignore par FiveM : il est mis dans un paquet lui aussi, meme range au
+    chemin OpenIV (mods\update\x64\dlcpacks\patchday8ng\dlc.rpf\x64\models\cdimages\weapons.rpf).
+    Une seule arme ou un pack de plusieurs armes : tout va dans le meme paquet. Les archives
+    rangees dans l'archive (une par arme) sont decompressees, un fichier present en double
+    n'est garde qu'une fois. Deux versions differentes d'un meme fichier (ex. dossiers Or et
+    Noir) : le logiciel demande d'ajouter seulement le dossier de la version voulue.
+    Les .rpf deja faits pour FiveM (ex. Exa_Replace_Weapons.rpf) sont poses tels quels dans mods.
     Sur un serveur en "pure mode", FiveM bloque tous les mods du client : rien a faire.
   Les autres fichiers bruts (.awc, .meta...) ne sont pas pris en charge (a mettre dans un .rpf avec OpenIV).
 - Les archives protegees par mot de passe ne sont pas prises en charge :

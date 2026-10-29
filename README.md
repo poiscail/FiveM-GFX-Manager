@@ -21,7 +21,9 @@ Logiciel Windows (aucune installation nécessaire) pour :
   nommé `effects`, `timecycle`, `ui`, `gta5` ou `common\data\…` donne la destination ;
 - skins d'armes en `.ydr` / `.ytd` seuls (dossier `stream` des packs « FiveM ») : mis dans un paquet
   FiveM `mods\gfx_<nom>.rpf` avec `assembly.xml` (sans lui, FiveM ignore les `.rpf` de `mods`) ;
-  un `.rpf` d'armes sans `assembly.xml` est mis dans un paquet lui aussi ;
+  un `.rpf` d'armes sans `assembly.xml` est mis dans un paquet lui aussi (même au chemin OpenIV
+  `…\dlc.rpf\x64\models\cdimages\weapons.rpf`) ; une arme ou un pack de plusieurs armes (archives
+  dans l'archive décompressées, fichiers en double gardés une fois) vont dans le même paquet ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
 - onglet **QuantV** : trouve QuantV dans les packs de la bibliothèque et le remplace par la nouvelle

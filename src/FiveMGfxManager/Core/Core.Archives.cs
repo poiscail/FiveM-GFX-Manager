@@ -126,10 +126,15 @@ namespace FiveMGfxManager
         // Décompresse source si besoin et renvoie le dossier à analyser (work est supprimé par l'appelant).
         static string OpenSource(string source, string work, Action<string> log, Action<double> progress)
         {
-            if (Directory.Exists(source)) return source;
-            if (!File.Exists(source)) throw new GfxException("Fichier introuvable : " + source);
             string dir = Path.Combine(work, "source");
-            if (source.EndsWith(".rpf", StringComparison.OrdinalIgnoreCase))
+            if (Directory.Exists(source))
+            {
+                if (TryFindPackRoot(source).root != null || !NestedArchives(source).Any()) return source;
+                // archives dans le dossier : décompressées dans une copie (le dossier de l'utilisateur ne change pas)
+                foreach (var rel in ListFiles(source)) CopyFile(P(source, rel), P(dir, rel));
+            }
+            else if (!File.Exists(source)) throw new GfxException("Fichier introuvable : " + source);
+            else if (source.EndsWith(".rpf", StringComparison.OrdinalIgnoreCase))
             {
                 // un mod seul (son, arme…) : il ira dans mods\
                 CopyFile(source, Path.Combine(dir, Path.GetFileName(source)));
@@ -139,7 +144,59 @@ namespace FiveMGfxManager
             {
                 ExtractArchive(source, dir, log, progress);
             }
+            if (TryFindPackRoot(dir).root == null) ExpandNestedArchives(dir, log);
             return dir;
+        }
+
+        static readonly string[] ArchiveExts = { ".zip", ".7z", ".rar" };
+
+        static IEnumerable<string> NestedArchives(string dir) =>
+            Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories)
+                     .Where(f => ArchiveExts.Contains(Path.GetExtension(f).ToLowerInvariant()));
+
+        // Pack d'armes livré en plusieurs archives (une par arme) : chacune est décompressée à sa place
+        static void ExpandNestedArchives(string dir, Action<string> log)
+        {
+            for (int level = 0; level < 3; level++)
+            {
+                var archives = NestedArchives(dir).ToList();
+                if (archives.Count == 0) return;
+                foreach (var a in archives)
+                {
+                    string target = Path.Combine(Path.GetDirectoryName(a), Path.GetFileNameWithoutExtension(a));
+                    while (Directory.Exists(target) || File.Exists(target)) target += "_";
+                    try
+                    {
+                        ExtractArchive(a, target, _ => { }, _ => { });
+                        log("Archive dans le pack décompressée : " + RelPath(dir, a));
+                    }
+                    catch (Exception e)
+                    {
+                        log("  ! " + RelPath(dir, a) + " ignorée : " + e.Message.Split('\n')[0]);
+                    }
+                    MakeWritable(a);
+                    File.Delete(a);
+                }
+            }
+        }
+
+        static bool SameContent(string a, string b)
+        {
+            if (new FileInfo(a).Length != new FileInfo(b).Length) return false;
+            using (var fa = File.OpenRead(a))
+            using (var fb = File.OpenRead(b))
+            {
+                var ba = new byte[81920];
+                var bb = new byte[81920];
+                int n;
+                while ((n = fa.Read(ba, 0, ba.Length)) > 0)
+                {
+                    int m = 0;
+                    while (m < n) { int r = fb.Read(bb, m, n - m); if (r <= 0) return false; m += r; }
+                    for (int i = 0; i < n; i++) if (ba[i] != bb[i]) return false;
+                }
+                return true;
+            }
         }
 
         // Range le contenu d'un pack dans dest\citizen|mods|plugins :
@@ -163,6 +220,10 @@ namespace FiveMGfxManager
                     log("Ignorés (pas des dossiers FiveM.app) : " + string.Join(", ", ignored));
                 foreach (var kv in found)
                     files.AddRange(ListFiles(kv.Value).Select(rel => (kv.Key + "/" + rel, P(kv.Value, rel))));
+                // .ydr, .ytd… seuls dans mods\ (chemin OpenIV « …\weapons.rpf\ » en dossiers) : FiveM ne les lit pas là
+                var loose = files.Where(f => f.rel.StartsWith("mods/", StringComparison.OrdinalIgnoreCase) && IsStreamFile(f.rel)).ToList();
+                files.RemoveAll(loose.Contains);
+                streamed.AddRange(loose.Select(f => f.src));
             }
             else
             {
@@ -180,6 +241,7 @@ namespace FiveMGfxManager
                     // .rpf de la racine du jeu (x64e.rpf…) livrés à côté de x64\ / update\
                     foreach (var f in Directory.GetFiles(gameRoot, "*.rpf").Where(f => IsTopLevelRpf(Path.GetFileName(f))))
                         files.Add(("mods/" + Path.GetFileName(f), f));
+                    streamed.AddRange(Directory.EnumerateFiles(gameRoot, "*", SearchOption.AllDirectories).Where(f => IsStreamFile(f)));
                 }
                 else
                 {
@@ -196,14 +258,6 @@ namespace FiveMGfxManager
                     // .ydr, .ytd… seuls : FiveM les streame depuis un paquet, à la place des fichiers du jeu de même nom
                     streamed = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
                                         .Where(f => IsStreamFile(f) && (mod || LooseCitizenPath(f, folder) == null)).ToList();
-                    if (streamed.Count > 0)
-                    {
-                        string package = "mods/" + PackageFileName(packName);
-                        files.Add((package, null));
-                        foreach (var f in streamed) files.Add(("stream/" + Path.GetFileName(f), f)); // contrôle des doublons
-                        log($"{streamed.Count} fichier(s) streamé(s) mis dans le paquet FiveM {package} : " +
-                            string.Join(", ", streamed.Take(8).Select(Path.GetFileName)) + (streamed.Count > 8 ? ", …" : ""));
-                    }
                     var rpfs = Directory.EnumerateFiles(folder, "*.rpf", SearchOption.AllDirectories).ToList();
                     if (rpfs.Count > 0)
                     {
@@ -216,7 +270,8 @@ namespace FiveMGfxManager
                         // (sans GTA V trouvé : seulement un mod, ou un .rpf de fichiers streamés comme weapons.rpf)
                         var addons = placed
                             .Where(x => x.rel == null && !gta.ContainsKey(Path.GetFileName(x.f)) &&
-                                        (gta.Count > 0 || mod || RpfRootFiles(x.f)?.Any(IsStreamFile) == true))
+                                        (gta.Count > 0 || mod || RpfRootFiles(x.f)?.Any(n => IsStreamFile(n) ||
+                                            n.Equals("assembly.xml", StringComparison.OrdinalIgnoreCase)) == true))
                             .Select(x => x.f).ToList();
                         placed = placed.Select(x => addons.Contains(x.f) ? (f: x.f, rel: "mods/" + Path.GetFileName(x.f)) : x).ToList();
                         var unknown = placed.Where(x => x.rel == null).Select(x => Path.GetFileName(x.f))
@@ -266,17 +321,57 @@ namespace FiveMGfxManager
                     }
                 }
             }
+            // .ydr, .ytd… seuls : FiveM les streame depuis un paquet, à la place des fichiers du jeu de même nom.
+            // Pack de plusieurs armes : tous dans le même paquet ; un même fichier présent deux fois n'est gardé qu'une fois.
+            if (streamed.Count > 0)
+            {
+                var kept = new List<string>();
+                foreach (var g in streamed.GroupBy(f => Path.GetFileName(f).ToLowerInvariant()))
+                {
+                    var versions = g.Where((f, i) => !g.Take(i).Any(o => SameContent(o, f))).ToList();
+                    if (versions.Count > 1)
+                        throw new GfxException($"Plusieurs versions différentes de « {Path.GetFileName(g.First())} » dans le pack :\n  " +
+                                               string.Join("\n  ", versions.Select(f => Path.GetDirectoryName(RelPath(folder, f)) is var d && d != "" ? d : "(racine)")) +
+                                               "\n\nFiveM ne peut en charger qu'une : ajoute seulement le dossier de la version voulue " +
+                                               "(« Ajouter un dossier… »).");
+                    kept.Add(versions[0]);
+                }
+                streamed = kept;
+                string package = "mods/" + PackageFileName(packName);
+                files.Add((package, null));
+                log($"{streamed.Count} fichier(s) streamé(s) mis dans le paquet FiveM {package} : " +
+                    string.Join(", ", streamed.Take(8).Select(Path.GetFileName)) + (streamed.Count > 8 ? ", …" : ""));
+            }
             if (files.Count == 0) throw new GfxException("Le pack ne contient aucun fichier.");
-            var dup = files.GroupBy(f => f.rel.ToLowerInvariant()).FirstOrDefault(g => g.Count() > 1);
-            if (dup != null)
-                throw new GfxException($"Deux fichiers s'appellent « {Path.GetFileName(dup.Key)} » dans le pack.\n" +
-                                       "Décompresse-le toi-même et range-le dans un dossier « citizen » ou « mods ».");
-            files.RemoveAll(f => f.rel.StartsWith("stream/"));
+
+            // .rpf de mods\ sans assembly.xml avec des fichiers streamés à sa racine (weapons.rpf…) : FiveM l'ignore,
+            // même au chemin OpenIV (mods\update\…\dlc.rpf\x64\models\cdimages\weapons.rpf) : mis dans un paquet à la racine de mods\
+            var wrap = new HashSet<string>(files.Where(f => f.src != null && NeedsPackage(f.rel, f.src, log)).Select(f => f.src));
+            files = files.Select(f => wrap.Contains(f.src) ? ("mods/" + Path.GetFileName(f.rel), f.src) : f).ToList();
+
+            // même fichier en double (une copie par arme) : gardé une fois ; .rpf différents au même nom : renommés
+            var final = new List<(string rel, string src)>();
+            foreach (var f in files)
+            {
+                var same = final.Where(x => x.rel.Equals(f.rel, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (same.Count == 0) { final.Add(f); continue; }
+                if (f.src != null && same.Any(x => x.src != null && SameContent(x.src, f.src))) continue;
+                if (!Regex.IsMatch(f.rel, @"^mods/[^/]+\.rpf$", RegexOptions.IgnoreCase))
+                    throw new GfxException($"Deux fichiers différents s'appellent « {Path.GetFileName(f.rel)} » dans le pack.\n" +
+                                           "Décompresse-le toi-même et range-le dans un dossier « citizen » ou « mods ».");
+                string baseName = f.rel.Substring(0, f.rel.Length - 4), rel;
+                int n = 2;
+                do rel = baseName + "_" + n++ + ".rpf"; while (final.Any(x => x.rel.Equals(rel, StringComparison.OrdinalIgnoreCase)));
+                log($"Deux .rpf différents s'appellent {Path.GetFileName(f.rel)} : le second devient {Path.GetFileName(rel)}.");
+                final.Add((rel, f.src));
+            }
+            files = final;
+
             foreach (var (rel, src) in files)
             {
                 if (src == null)
                     WriteModPackage(P(dest, rel), packName ?? "Pack", streamed, new List<string>());
-                else if (NeedsPackage(rel, src, log))
+                else if (wrap.Contains(src))
                 {
                     WriteModPackage(P(dest, rel), Path.GetFileNameWithoutExtension(rel), new List<string>(), new List<string> { src });
                     log($"{Path.GetFileName(rel)} n'a pas d'assembly.xml (FiveM l'ignorerait) : mis dans un paquet FiveM.");
@@ -287,15 +382,15 @@ namespace FiveMGfxManager
             return files.Select(f => f.rel).ToList();
         }
 
-        // .rpf posé à la racine de mods\ sans assembly.xml mais avec des fichiers streamés (.ydr, .ytd…) à sa racine
+        // .rpf de mods\ sans assembly.xml mais avec des fichiers streamés (.ydr, .ytd…) à sa racine
         static bool NeedsPackage(string rel, string src, Action<string> log)
         {
-            if (!Regex.IsMatch(rel, @"^mods/[^/]+\.rpf$", RegexOptions.IgnoreCase) || IsTopLevelRpf(Path.GetFileName(rel)))
+            if (!Regex.IsMatch(rel, @"^mods/.+\.rpf$", RegexOptions.IgnoreCase) || IsTopLevelRpf(Path.GetFileName(rel)))
                 return false;
             var entries = ReadRpfEntries(src);
             if (entries == null)
             {
-                if (IsEncryptedRpf(src))
+                if (IsEncryptedRpf(src) && !rel.Substring(5).Contains("/"))
                     log($"  ! {Path.GetFileName(rel)} est chiffré : impossible de vérifier qu'il contient un assembly.xml. " +
                         "S'il n'en a pas, FiveM l'ignorera (ré-enregistre-le non chiffré avec OpenIV).");
                 return false;

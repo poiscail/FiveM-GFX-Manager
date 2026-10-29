@@ -55,7 +55,9 @@ namespace FiveMGfxManager
             try
             {
                 string folder = OpenSource(source, work, log, p => progress(p * 0.7));
-                var files = NormalizePack(folder, Path.Combine(dir, "contenu"), log, type == ModType);
+                var files = NormalizePack(folder, Path.Combine(dir, "contenu"), log, type == ModType, SourceName(source));
+                string image = FindPreviewImage(folder);
+                if (image != null) CopyFile(image, Path.Combine(dir, "apercu" + Path.GetExtension(image).ToLowerInvariant()));
                 string sig = ContentSignature(Path.Combine(dir, "contenu"));
                 var same = ListLibrary().FirstOrDefault(o => o.Id != id && ContentSignature(LibraryContent(o.Id)) == sig);
                 if (same != null)

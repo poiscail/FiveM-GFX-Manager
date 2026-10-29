@@ -121,6 +121,7 @@ namespace FiveMGfxManager
             string file = P(fivemApp, "plugins/" + name);
             if (!File.Exists(file)) throw new GfxException("Preset introuvable : " + name);
             if (!File.Exists(ReshadeIni(fivemApp))) throw new GfxException("ReShade.ini introuvable : installe d'abord ReShade.");
+            RecordFile($"Preset ReShade actif : {name}", ReshadeIni(fivemApp));
             IniSet(ReshadeIni(fivemApp), "GENERAL", "PresetPath", @".\" + name);
             log($"Preset actif : {name}");
         }
@@ -146,6 +147,7 @@ namespace FiveMGfxManager
         public static void SetReshadePerformanceMode(string fivemApp, bool on, Action<string> log)
         {
             if (!File.Exists(ReshadeIni(fivemApp))) throw new GfxException("ReShade.ini introuvable : installe d'abord ReShade.");
+            RecordFile("Mode performance ReShade " + (on ? "activé" : "désactivé"), ReshadeIni(fivemApp));
             IniSet(ReshadeIni(fivemApp), "GENERAL", "PerformanceMode", on ? "1" : "0");
             log("Mode performance ReShade " + (on ? "activé." : "désactivé."));
         }

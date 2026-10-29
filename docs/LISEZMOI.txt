@@ -67,7 +67,12 @@ REMARQUES
     Roue des armes, position de la map (.gfx, frontend.xml...) -> ui
     No water (water.xml) -> levels\gta5
   Routes, tracers, effets de feu (.rpf) -> mods.
-  Les fichiers bruts a remplacer avec OpenIV (.ytd, .ydr, .awc...) ne sont pas pris en charge.
+  Skins d'armes en fichiers seuls (.ydr, .ytd, .yft... souvent dans un dossier "stream") :
+    mis dans un paquet FiveM mods\gfx_<nom du pack>.rpf (avec assembly.xml), qui remplace
+    les fichiers du jeu de meme nom. Un .rpf d'armes pose a la racine de mods sans assembly.xml
+    (ex. weapons.rpf) est ignore par FiveM : il est mis dans un paquet lui aussi.
+    Sur un serveur en "pure mode", FiveM bloque tous les mods du client : rien a faire.
+  Les autres fichiers bruts (.awc, .meta...) ne sont pas pris en charge (a mettre dans un .rpf avec OpenIV).
 - Les archives protegees par mot de passe ne sont pas prises en charge :
   decompresse-les toi-meme puis choisis "Dossier...".
 - Certains serveurs interdisent ReShade ou les packs graphiques : verifie leurs regles.

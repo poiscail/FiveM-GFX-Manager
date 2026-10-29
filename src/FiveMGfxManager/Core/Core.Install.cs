@@ -42,6 +42,7 @@ namespace FiveMGfxManager
                 log("Son d'arme mis de côté : " + rel.Replace('/', '\\'));
             }
             if (m.Deplaces.Count > 0) WriteJson(ManifestPath(m.Id), m);
+            RecordInstall($"Installé : {pack.Nom}", m.Id);
             return m;
         }
 
@@ -63,9 +64,11 @@ namespace FiveMGfxManager
         {
             if (!IsValidFivemApp(fivemApp))
                 throw new GfxException("Le dossier FiveM.app est invalide. Choisis le bon dossier en haut.");
-            return WithTempDir(work =>
+            var m = WithTempDir(work =>
                 InstallContent(StageSource(source, work, log, p => progress(p * 0.5)), SourceName(source), type, null,
                                source, fivemApp, log, p => progress(0.5 + p * 0.5)));
+            RecordInstall($"Installé : {m.Nom}", m.Id);
+            return m;
         }
 
         static string ManifestPath(string installId) => Path.Combine(InstallsDir(), installId, "manifest.json");
@@ -240,6 +243,7 @@ namespace FiveMGfxManager
             }
             SaveConfig(cfg);
             log($"Pack retiré : {manifest.Ajoutes.Count} fichiers supprimés, {manifest.Remplaces.Count} fichiers d'origine remis.");
+            RecordRemoval($"Retiré : {info.Nom}", info.LibId);
         }
 
         // ReShade installé après le pack a écrasé certains de ses fichiers (ex : plugins\dxgi.dll) :

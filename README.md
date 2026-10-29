@@ -19,6 +19,9 @@ Logiciel Windows (aucune installation nécessaire) pour :
   `effects\`, kill effects (`timecycle…xml`) → `timecycle\`, roue des armes / position de la map
   (`.gfx`, `frontend.xml`…) → `ui\`, no water (`water.xml`) → `levels\gta5\` ; un dossier du pack
   nommé `effects`, `timecycle`, `ui`, `gta5` ou `common\data\…` donne la destination ;
+- skins d'armes en `.ydr` / `.ytd` seuls (dossier `stream` des packs « FiveM ») : mis dans un paquet
+  FiveM `mods\gfx_<nom>.rpf` avec `assembly.xml` (sans lui, FiveM ignore les `.rpf` de `mods`) ;
+  un `.rpf` d'armes sans `assembly.xml` est mis dans un paquet lui aussi ;
 - faire une sauvegarde complète d'origine (sans mods) de `citizen`, `mods`, `plugins` et la restaurer ;
 - installer / désinstaller ReShade dans `FiveM.app\plugins` (téléchargement automatique + shaders) ;
 - onglet **QuantV** : trouve QuantV dans les packs de la bibliothèque et le remplace par la nouvelle

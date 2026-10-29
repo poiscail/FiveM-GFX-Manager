@@ -122,6 +122,7 @@ namespace FiveMGfxManager
             }
             // sans SMC_USER, le jeu remet ses réglages automatiques au démarrage
             xml = Regex.Replace(xml, @"<configSource>[^<]*</configSource>", "<configSource>SMC_USER</configSource>");
+            RecordFile($"Graphismes : profil « {profile} »", GraphicsSettingsPath());
             WriteSettings(xml);
             log($"Profil graphique « {profile} » appliqué ({changed} réglages).");
         }
@@ -131,6 +132,7 @@ namespace FiveMGfxManager
         {
             ReadSettings();
             BackupGraphics();
+            RecordFile("Graphismes : réglages d'un profil", GraphicsSettingsPath());
             WriteSettings(File.ReadAllText(file));
             log("Réglages graphiques du profil remis.");
         }
@@ -138,6 +140,7 @@ namespace FiveMGfxManager
         public static void RestoreGraphics(Action<string> log)
         {
             if (!HasGraphicsBackup()) throw new GfxException("Aucune sauvegarde des réglages graphiques.");
+            RecordFile("Graphismes : réglages d'origine remis", GraphicsSettingsPath());
             WriteSettings(File.ReadAllText(GraphicsOriginal()));
             log("Réglages graphiques d'origine remis.");
         }

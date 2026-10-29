@@ -119,7 +119,7 @@ namespace FiveMGfxManager
         static string StageSource(string source, string work, Action<string> log, Action<double> progress, bool mod = false)
         {
             string staged = Path.Combine(work, "range");
-            NormalizePack(OpenSource(source, work, log, progress), staged, log, mod);
+            NormalizePack(OpenSource(source, work, log, progress), staged, log, mod, SourceName(source));
             return staged;
         }
 
@@ -145,11 +145,14 @@ namespace FiveMGfxManager
         // Range le contenu d'un pack dans dest\citizen|mods|plugins :
         //  - pack avec citizen / mods / plugins : copié tel quel ;
         //  - pack « OpenIV » avec x64\… ou update\… (sons, armes) : mis dans mods\ en gardant le chemin ;
-        //  - fichiers .rpf seuls : mis dans mods\.
+        //  - fichiers .rpf seuls : mis dans mods\ ;
+        //  - fichiers streamés seuls (.ydr, .ytd… des skins d'armes) : mis dans un paquet FiveM mods\gfx_<nom>.rpf.
+        // Un .rpf posé à la racine de mods\ sans assembly.xml est ignoré par FiveM : il est mis dans un paquet.
         // Un mod (mod = true) ne garde que ses .rpf : ses autres fichiers seuls ne vont pas dans citizen.
-        static List<string> NormalizePack(string folder, string dest, Action<string> log, bool mod = false)
+        static List<string> NormalizePack(string folder, string dest, Action<string> log, bool mod = false, string packName = null)
         {
             var files = new List<(string rel, string src)>();
+            var streamed = new List<string>();   // empaquetés dans le fichier de src null
             var (root, found) = TryFindPackRoot(folder);
             if (root != null)
             {
@@ -190,6 +193,17 @@ namespace FiveMGfxManager
                         log($"{citizen.Count} fichier(s) placé(s) dans citizen\\common\\data : " +
                             string.Join(", ", citizen.Select(x => x.rel.Substring(CitizenData.Length))));
                     }
+                    // .ydr, .ytd… seuls : FiveM les streame depuis un paquet, à la place des fichiers du jeu de même nom
+                    streamed = Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+                                        .Where(f => IsStreamFile(f) && (mod || LooseCitizenPath(f, folder) == null)).ToList();
+                    if (streamed.Count > 0)
+                    {
+                        string package = "mods/" + PackageFileName(packName);
+                        files.Add((package, null));
+                        foreach (var f in streamed) files.Add(("stream/" + Path.GetFileName(f), f)); // contrôle des doublons
+                        log($"{streamed.Count} fichier(s) streamé(s) mis dans le paquet FiveM {package} : " +
+                            string.Join(", ", streamed.Take(8).Select(Path.GetFileName)) + (streamed.Count > 8 ? ", …" : ""));
+                    }
                     var rpfs = Directory.EnumerateFiles(folder, "*.rpf", SearchOption.AllDirectories).ToList();
                     if (rpfs.Count > 0)
                     {
@@ -198,10 +212,12 @@ namespace FiveMGfxManager
                         var gta = GtaRpfIndex(log);
                         var placed = rpfs.Select(f => (f, rel: LooseRpfPath(f, folder, gta))).ToList();
                         // un nom qui n'existe pas dans GTA V est un pack de mods pour FiveM (ex : aQuantV.rpf) :
-                        // FiveM charge tout .rpf posé à la racine de mods\
-                        // (un mod sans GTA V trouvé : posé à la racine de mods\ aussi)
-                        var addons = gta.Count == 0 && !mod ? new List<string>() : placed
-                            .Where(x => x.rel == null && !gta.ContainsKey(Path.GetFileName(x.f))).Select(x => x.f).ToList();
+                        // posé à la racine de mods\ (mis dans un paquet s'il n'a pas d'assembly.xml)
+                        // (sans GTA V trouvé : seulement un mod, ou un .rpf de fichiers streamés comme weapons.rpf)
+                        var addons = placed
+                            .Where(x => x.rel == null && !gta.ContainsKey(Path.GetFileName(x.f)) &&
+                                        (gta.Count > 0 || mod || RpfRootFiles(x.f)?.Any(IsStreamFile) == true))
+                            .Select(x => x.f).ToList();
                         placed = placed.Select(x => addons.Contains(x.f) ? (f: x.f, rel: "mods/" + Path.GetFileName(x.f)) : x).ToList();
                         var unknown = placed.Where(x => x.rel == null).Select(x => Path.GetFileName(x.f))
                                             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -229,14 +245,15 @@ namespace FiveMGfxManager
                             log($"{addons.Count} pack(s) .rpf pour FiveM (nom absent de GTA V) posé(s) dans mods\\ : " +
                                 string.Join(", ", addons.Select(Path.GetFileName)));
                     }
-                    else if (citizen.Count == 0 && Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
+                    else if (citizen.Count == 0 && streamed.Count == 0 && Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)
                                       .Any(f => RawGameExts.Contains(Path.GetExtension(f).ToLowerInvariant())))
                     {
-                        throw new GfxException("Ce pack contient des fichiers GTA V « bruts » (.ytd, .yft, .awc…) " +
+                        throw new GfxException("Ce pack contient des fichiers GTA V « bruts » (.awc, .meta…) " +
                                                "qui ne sont pas dans un .rpf.\nFiveM ne peut pas les charger tels quels : " +
                                                "il faut d'abord les mettre dans un .rpf avec OpenIV,\n" +
                                                "ou utiliser une version du mod faite pour FiveM.");
                     }
+                    else if (streamed.Count > 0) { }
                     else if (mod)
                     {
                         throw new GfxException("Aucun fichier .rpf ni dossier « mods » dans ce mod.\n" +
@@ -254,9 +271,37 @@ namespace FiveMGfxManager
             if (dup != null)
                 throw new GfxException($"Deux fichiers s'appellent « {Path.GetFileName(dup.Key)} » dans le pack.\n" +
                                        "Décompresse-le toi-même et range-le dans un dossier « citizen » ou « mods ».");
+            files.RemoveAll(f => f.rel.StartsWith("stream/"));
             foreach (var (rel, src) in files)
-                CopyFile(src, P(dest, rel));
+            {
+                if (src == null)
+                    WriteModPackage(P(dest, rel), packName ?? "Pack", streamed, new List<string>());
+                else if (NeedsPackage(rel, src, log))
+                {
+                    WriteModPackage(P(dest, rel), Path.GetFileNameWithoutExtension(rel), new List<string>(), new List<string> { src });
+                    log($"{Path.GetFileName(rel)} n'a pas d'assembly.xml (FiveM l'ignorerait) : mis dans un paquet FiveM.");
+                }
+                else
+                    CopyFile(src, P(dest, rel));
+            }
             return files.Select(f => f.rel).ToList();
+        }
+
+        // .rpf posé à la racine de mods\ sans assembly.xml mais avec des fichiers streamés (.ydr, .ytd…) à sa racine
+        static bool NeedsPackage(string rel, string src, Action<string> log)
+        {
+            if (!Regex.IsMatch(rel, @"^mods/[^/]+\.rpf$", RegexOptions.IgnoreCase) || IsTopLevelRpf(Path.GetFileName(rel)))
+                return false;
+            var entries = ReadRpfEntries(src);
+            if (entries == null)
+            {
+                if (IsEncryptedRpf(src))
+                    log($"  ! {Path.GetFileName(rel)} est chiffré : impossible de vérifier qu'il contient un assembly.xml. " +
+                        "S'il n'en a pas, FiveM l'ignorera (ré-enregistre-le non chiffré avec OpenIV).");
+                return false;
+            }
+            var rootFiles = entries.Where(e => !e.Dossier && !e.Path.Contains("/")).Select(e => e.Path).ToList();
+            return !rootFiles.Contains("assembly.xml", StringComparer.OrdinalIgnoreCase) && rootFiles.Any(IsStreamFile);
         }
 
         // .rpf de la racine de GTA V (common.rpf, x64a.rpf … x64w.rpf)

@@ -54,7 +54,34 @@ class T {
     Check(Core.ListLibrary().Count==3 && Core.ListLibrary().Any(p=>p.Type=="Son"), "3 packs dans la bibliotheque");
     Check(Core.ListLibrary().Select(p=>p.Id).SequenceEqual(new[]{g.Id,son.Id,arm.Id}), "bibliotheque triee par date d'ajout");
     try { Core.ImportPack(S+"/MonPack.7z","Graphique",log,pr); Check(false,"doublon"); } catch(GfxException e){ Check(e.Message.Contains("déjà") && Core.ListLibrary().Count==3, "meme pack importe 2 fois refuse"); }
-    try { Core.ImportPack(S+"/brut","Armes",log,pr); Check(false,"brut"); } catch(GfxException e){ Check(e.Message.Contains("OpenIV") && Core.ListLibrary().Count==3, "fichiers .ytd seuls refuses proprement"); }
+    W(S+"/brutson/explosion.awc","AWC");
+    try { Core.ImportPack(S+"/brutson","Son",log,pr); Check(false,"brut"); } catch(GfxException e){ Check(e.Message.Contains("OpenIV") && Core.ListLibrary().Count==3, "fichiers .awc seuls refuses proprement"); }
+    // skin d'arme en .ydr / .ytd seuls : mis dans un paquet FiveM (rpf + assembly.xml)
+    byte[] Rsc(string body){ var b=new byte[16].Concat(System.Text.Encoding.ASCII.GetBytes(body)).ToArray(); BitConverter.GetBytes(0x37435352u).CopyTo(b,0); b[4]=13; BitConverter.GetBytes(0x11u).CopyTo(b,8); BitConverter.GetBytes(0x22u).CopyTo(b,12); return b; }
+    Directory.CreateDirectory(S+"/Glock Or/stream"); File.WriteAllBytes(S+"/Glock Or/stream/w_pi_pistol.ydr",Rsc("MODELE")); File.WriteAllBytes(S+"/Glock Or/stream/w_pi_pistol.ytd",Rsc("TEXTURE"));
+    W(S+"/Glock Or/lisezmoi.txt","x");
+    var gl=Core.ImportPack(S+"/Glock Or","Armes",log,pr);
+    string pk=S+"/appdata/bibliotheque/"+gl.Id+"/contenu/mods/gfx_glock_or.rpf";
+    var ents=Core.ReadRpfEntries(pk);
+    Check(ents!=null && ents.Any(x=>x.Path=="assembly.xml") && ents.Any(x=>x.Path=="content/w_pi_pistol.ydr" && x.Ressource), "ydr/ytd seuls mis dans un paquet FiveM");
+    string asm=System.Text.Encoding.UTF8.GetString(Core.ReadRpfFile(pk,"assembly.xml"));
+    Check(asm.Contains("target=\"Five\"") && asm.Contains("<add source=\"w_pi_pistol.ytd\">w_pi_pistol.ytd</add>") && asm.Contains("<name>Glock Or</name>") && System.Text.RegularExpressions.Regex.IsMatch(asm,"id=\"\\{[0-9A-F-]{36}\\}\""), "assembly.xml lisible par FiveM");
+    Check(Core.ReadRpfFile(pk,"content/w_pi_pistol.ytd").SequenceEqual(Rsc("TEXTURE")), "ressource intacte dans le paquet");
+    Core.DeleteFromLibrary(gl.Id,log);
+    // .rpf d'armes sans assembly.xml (FiveM l'ignorerait) : mis dans un paquet
+    { var r=new byte[1024]; var w=new BinaryWriter(new MemoryStream(r));
+      w.Write(0x52504637u); w.Write(2u); w.Write(16u); w.Write(0x4E45504Fu);
+      w.Write(0u); w.Write(0x7FFFFF00u); w.Write(1u); w.Write(1u);
+      w.Write(1UL|(1UL<<40)); w.Write(3u); w.Write(0u);
+      w.Write(System.Text.Encoding.ASCII.GetBytes("\0a.ydr\0")); w.Flush();
+      r[512]=(byte)'Y'; r[513]=(byte)'D'; r[514]=(byte)'R';
+      Directory.CreateDirectory(S+"/rpfarme"); File.WriteAllBytes(S+"/rpfarme/mesarmes.rpf",r);
+      var lu=Core.ReadRpfEntries(S+"/rpfarme/mesarmes.rpf");
+      Check(lu!=null && lu.Single().Path=="a.ydr" && System.Text.Encoding.ASCII.GetString(Core.ReadRpfFile(S+"/rpfarme/mesarmes.rpf","a.ydr"))=="YDR", "lecture d'un rpf OPEN");
+      var ma=Core.ImportPack(S+"/rpfarme/mesarmes.rpf","Armes",log,pr);
+      string mp=S+"/appdata/bibliotheque/"+ma.Id+"/contenu/mods/mesarmes.rpf";
+      Check(Core.ReadRpfFile(mp,"content/mesarmes.rpf")?.SequenceEqual(r)==true && System.Text.Encoding.UTF8.GetString(Core.ReadRpfFile(mp,"assembly.xml")).Contains("models\\cdimages\\mesarmes.rpf</add>"), "rpf sans assembly.xml mis dans un paquet");
+      Core.DeleteFromLibrary(ma.Id,log); }
     var wp=Core.ImportPack(S+"/weapons.rpf","Armes",log,pr);
     Check(File.Exists(S+"/appdata/bibliotheque/"+wp.Id+"/contenu/mods/weapons.rpf"), ".rpf au nom absent de GTA V pose a la racine de mods (pack FiveM)");
     Core.DeleteFromLibrary(wp.Id,log);

@@ -35,6 +35,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
 |---|---|
 | `src/FiveMGfxManager/Core/Core.cs` | Classe statique `Core` (partielle) : config, chemins FiveM.app / GTA V (`GtaPath`), utilitaires + classes JSON (`Config`, `Manifest`, `PackInfo`, `BackupInfo`, `ReshadeState`) |
 | `Core/Core.Archives.cs` | Décompression (SharpCompress), `NormalizePack`, chemin GTA des `.rpf` seuls (`GtaRpfIndex`, `LooseRpfPath`) |
+| `Core/Core.Rpf.cs` | Lecteur / écrivain RPF7 non chiffré, paquets de mods FiveM (`assembly.xml`, `WriteModPackage`) |
 | `Core/Core.Install.cs` | Installer / retirer un pack, conflits, `HandOverToReshade`, cache |
 | `Core/Core.Library.cs` | Bibliothèque de packs (import, mods ajoutés, type, suppression) |
 | `Core/Core.Scan.cs` | Recherche des sons d'armes déjà présents avant un pack son (`FindWeaponSounds`, lecteur RPF7 non chiffré `RpfEntries`) |
@@ -82,11 +83,15 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   nom dans cet index ; s'il y est plusieurs fois (`dlc.rpf`), on garde le chemin qui partage le plus
   de dossiers de fin avec le chemin du fichier dans le pack (`mpheist\dlc.rpf`), sinon refus
   « existe à plusieurs endroits ». Nom absent de GTA V (ex. `aQuantV.rpf`) → pack .rpf pour FiveM, posé
-  à la racine de `mods` (FiveM charge tout .rpf de `mods`, cf. le dossier mods de l'utilisateur). Sans GTA V : règles fixes (sons `SfxRpfs` → `mods\x64\audio\sfx\`,
+  à la racine de `mods` (mis dans un paquet s'il n'a pas d'`assembly.xml`). Sans GTA V : règles fixes (sons `SfxRpfs` → `mods\x64\audio\sfx\`,
   `update.rpf` → `mods\update\`, `x64?.rpf`/`common.rpf` → `mods\`). Les `.rpf` introuvables sont
   refusés, car FiveM ne charge un `.rpf` de mods que s'il a le même chemin que dans GTA
-  (https://openiv.com/?p=1132). Les fichiers bruts (`.ytd`, `.ydr`, `.awc`…) sont refusés avec un
-  message qui conseille OpenIV. Un pack au contenu identique (chemins + tailles) à un pack déjà dans
+  (https://openiv.com/?p=1132). FiveM ne charge un `.rpf` de la racine de `mods` que s'il contient
+  un `assembly.xml` (citizen-mod-loader-five, `ModPackage.cpp`) : les fichiers streamés seuls
+  (`.ydr`, `.ytd`… `StreamExts`) vont dans un paquet `mods\gfx_<nom>.rpf`, et un `.rpf` de la racine
+  sans `assembly.xml` dont la racine a des fichiers streamés est enveloppé dans un paquet
+  (`Core.Rpf.cs` : lecteur / écrivain RPF7 OPEN, `WriteModPackage`). Les autres fichiers bruts
+  (`.awc`, `.meta`…) sont refusés avec un message qui conseille OpenIV. Un pack au contenu identique (chemins + tailles) à un pack déjà dans
   la bibliothèque est refusé.
 - **Ajouter des mods à un pack** : fusionne dans `contenu\` (refusé si le pack est installé ;
   l'interface propose retrait → ajout → réinstallation).
@@ -153,7 +158,7 @@ Demande suivante : **ne rien avoir à installer** (pas de Python, pas de 7-Zip) 
   depuis un dossier ; restauration d'origine ; vrai téléchargement de ReShade 6.8.0 (dll de 5,2 Mo) ;
   shaders (archive locale simulée) ; désinstallation de ReShade qui remet le dll du pack ; cache ;
   refus d'un pack en conflit ; bibliothèque (import, packs son au format x64, `.rpf` seuls rangés à
-  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.ytd` bruts, 3 packs
+  leur chemin GTA, `.rpf` inconnu refusé, doublon refusé, ordre, refus des `.awc` bruts, `.ydr`/`.ytd` mis dans un paquet FiveM lisible, `.rpf` sans assembly.xml enveloppé, 3 packs
   installés ensemble, ajout de mods sans doublon, changement de type, suppression, retrait complet
   propre) ; sons d'armes trouvés avant install (sous-dossier de mods, dans un .rpf, GTA V\mods), mis de côté puis remis ; pack + ReShade sur le même `dxgi.dll` (dans les deux ordres, et ReShade désinstallé
   pendant qu'un pack est installé par-dessus) ; `.rpf` seuls rangés grâce à un faux dossier GTA V
